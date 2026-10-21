@@ -45,7 +45,7 @@ public class MainActivity extends Activity {
     private AppColors colors;
     private Dialog settingsDialog;
     private boolean reopenSettings;
-    private static final String SOURCE_REPOSITORY="https://github.com/expat2159/mkeiit-3sa2";
+    private static final String DEVELOPER_TELEGRAM="https://t.me/expat2159";
     private static final Locale RU=new Locale("ru");
     private int dp(float n){return (int)(getResources().getDisplayMetrics().density*n+.5f);}
     private LocalDate today(){return LocalDate.now(ZoneId.of("Europe/Moscow"));}
@@ -283,8 +283,21 @@ public class MainActivity extends Activity {
     private TextView text(String value,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);t.setGravity(Gravity.CENTER_VERTICAL);t.setPadding(0,dp(2),0,dp(2));if(bold)t.setTypeface(null,Typeface.BOLD);return t;}
     private GradientDrawable background(int color,int radius){GradientDrawable bg=new GradientDrawable();bg.setColor(color);bg.setCornerRadius(dp(radius));return bg;}
     private Button action(LinearLayout parent,String title,Runnable callback){
-        Button b=new Button(this);b.setText(title);b.setTextSize(12);b.setAllCaps(false);b.setTextColor(blue);b.setMinWidth(0);b.setMinimumWidth(0);b.setPadding(dp(8),0,dp(8),0);
-        b.setOnClickListener(v->callback.run());parent.addView(b,new LinearLayout.LayoutParams(-2,dp(40)));return b;
+        boolean primary=title.equals("Обновить"),iconOnly=title.equals("⋮") || title.equals("‹") || title.equals("›");
+        int icon=title.equals("Обновить")?AppIcon.REFRESH:title.equals("⋮")?AppIcon.SETTINGS:title.equals("Закрыть")?AppIcon.CLOSE:title.equals("›")?AppIcon.RIGHT:title.equals("Сегодня")?AppIcon.CALENDAR:AppIcon.LEFT;
+        String label=title.equals("‹ К списку")?"К списку":title;
+        int foreground=primary?colors.onAccent:blue;
+        Button button=new Button(this);button.setText(iconOnly?"":label);button.setTextSize(12);button.setLetterSpacing(0);button.setAllCaps(false);button.setTypeface(null,Typeface.BOLD);button.setGravity(Gravity.CENTER);button.setIncludeFontPadding(false);
+        button.setMaxLines(1);button.setHorizontallyScrolling(false);button.setMinWidth(0);button.setMinimumWidth(0);button.setMinHeight(0);button.setMinimumHeight(0);button.setPadding(dp(iconOnly?13:10),0,dp(iconOnly?13:10),0);
+        android.content.res.ColorStateList textColors=new android.content.res.ColorStateList(new int[][]{new int[]{-android.R.attr.state_enabled},new int[]{}},new int[]{muted,foreground});
+        button.setTextColor(textColors);button.setBackgroundTintList(null);button.setStateListAnimator(null);button.setElevation(0);
+        GradientDrawable normal=background(primary?blue:colors.teacherCard,12);
+        if(!primary)normal.setStroke(dp(1),colors.dark?0xFF34445F:0xFFDDE5F3);
+        android.graphics.drawable.StateListDrawable states=new android.graphics.drawable.StateListDrawable();states.addState(new int[]{-android.R.attr.state_enabled},background(colors.surface,12));states.addState(new int[]{},normal);
+        android.graphics.drawable.RippleDrawable ripple=new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf((foreground & 0x00FFFFFF) | 0x33000000),states,background(0xFFFFFFFF,12));button.setBackground(ripple);
+        AppIcon drawable=new AppIcon(icon,foreground);drawable.setBounds(0,0,dp(18),dp(18));drawable.setTintList(textColors);button.setCompoundDrawables(drawable,null,null,null);button.setCompoundDrawablePadding(iconOnly?0:dp(5));
+        String description=title.equals("⋮")?"Настройки":title.equals("‹")?"Предыдущая неделя":title.equals("›")?"Следующая неделя":label;button.setContentDescription(description);button.setTooltipText(description);
+        button.setOnClickListener(v->callback.run());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(iconOnly?dp(44):-2,dp(44));lp.setMargins(dp(2),dp(2),dp(2),dp(2));if(parent.getOrientation()==LinearLayout.VERTICAL)lp.gravity=Gravity.CENTER_HORIZONTAL;parent.addView(button,lp);return button;
     }
     private void open(String url){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(ActivityNotFoundException e){Toast.makeText(this,"Браузер не установлен",0).show();}}
     private void settings(){
@@ -308,7 +321,7 @@ public class MainActivity extends Activity {
         });
         panel.addView(new View(this),new LinearLayout.LayoutParams(-1,0,1));
         TextView author=text("разработчик - expat",14,muted,false);author.setGravity(Gravity.CENTER);panel.addView(author,new LinearLayout.LayoutParams(-1,dp(32)));
-        TextView source=text("Исходники на GitHub",15,blue,true);source.setGravity(Gravity.CENTER);source.setFocusable(true);source.setOnClickListener(v->open(SOURCE_REPOSITORY));source.setContentDescription("Исходники приложения на GitHub, expat2159/mkeiit-3sa2");panel.addView(source,new LinearLayout.LayoutParams(-1,dp(48)));
+        TextView contact=text("Telegram разработчика",15,blue,true);contact.setGravity(Gravity.CENTER);contact.setFocusable(true);contact.setOnClickListener(v->open(DEVELOPER_TELEGRAM));contact.setContentDescription("Telegram разработчика: @expat2159");panel.addView(contact,new LinearLayout.LayoutParams(-1,dp(48)));
         dialog.setContentView(panel);dialog.setOnDismissListener(d->{if(settingsDialog==dialog)settingsDialog=null;});dialog.show();
         android.util.DisplayMetrics metrics=getResources().getDisplayMetrics();
         dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
