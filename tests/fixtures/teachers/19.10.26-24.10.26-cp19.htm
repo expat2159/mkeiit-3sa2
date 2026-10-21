@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta http-equiv="Content-Language" content="ru">
+<meta http-equiv=Content-Type content="text/html; charset=windows-1251">
+<title>Неделя – Экспресс-расписание</title>
+<meta name="keywords" content="расписание, занятие, расписание учебных занятий, программа, Экспресс-расписание, веб-страница">
+<meta name="description" content="Страницы для веб-просмотра текущего (фактического) расписания учебных занятий на неделю. Программа &quot;Экспресс-расписание&quot;. Батищев П.С.">
+<meta name="viewport" content="width=device-width, initial-scale=0.6, maximum-scale=1.0">
+
+<link rel="stylesheet" type="text/css" href="style.css">
+
+</head>
+
+<body>
+<script>
+(function(){
+	try {
+		var v = JSON.parse(localStorage.getItem("expressTimetableUiToggles") || "{}");
+		var cl = document.documentElement.classList;
+		var def = getComputedStyle(document.documentElement).getPropertyValue("--blur-default").trim();
+		var blurOn;
+		if (def === "off") {
+			blurOn = false;
+		} else {
+			blurOn = (typeof v.noBlur === "boolean") ? !v.noBlur : true;
+		}
+		if (!blurOn) cl.add("no-blur");
+		var pdef = getComputedStyle(document.documentElement).getPropertyValue("--print-default").trim();
+		var hidePrint = (typeof v.hidePrint === "boolean") ? v.hidePrint : (pdef === "off");
+		if (hidePrint) cl.add("hide-print-btn");
+	} catch (e) {}
+})();
+</script>
+<div class="top-head">
+	<a class="brand" title="Программа для автоматизации составления расписания учебных занятий">
+		<span class="ico">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+		</span>
+		<span class="lbl">Экспресс-расписание</span>
+	</a>
+
+	<div class="top-toggles">
+		<button type="button" class="toggle-btn" id="toggleBlurBtn" title="Отключить прозрачность и размытие шапки при скролле" aria-pressed="false">
+						<svg class="ico-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+						<svg class="ico-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path><line x1="3" y1="3" x2="21" y2="21"></line></svg>
+						<span class="lbl">Прозрачность</span>
+					</button>
+		<button type="button" class="toggle-btn" id="toggleHidePrintBtn" title="Скрыть кнопку «Печать»" aria-pressed="false">
+						<svg class="ico-on" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+						<svg class="ico-off" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect><line x1="2" y1="2" x2="22" y2="22"></line></svg>
+						<span class="lbl">Печать</span>
+					</button>
+	</div>
+
+	<script>
+	(function(){
+		var blurBtn = document.getElementById("toggleBlurBtn");
+		var printBtn = document.getElementById("toggleHidePrintBtn");
+		if (!blurBtn && !printBtn) return;
+		var STORAGE_KEY = "expressTimetableUiToggles";
+		var html = document.documentElement;
+
+		function readState(){
+			try {
+				return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+			} catch (e) { return {}; }
+		}
+		function writeState(v){
+			try { localStorage.setItem(STORAGE_KEY, JSON.stringify(v)); } catch (e) {}
+		}
+		function syncButton(btn, on){
+			btn.classList.toggle("active", on);
+			btn.setAttribute("aria-pressed", on ? "true" : "false");
+		}
+		function bindToggle(btn, cls, key){
+			if (!btn) return;
+			syncButton(btn, html.classList.contains(cls));
+			btn.addEventListener("click", function(){
+				var on = !html.classList.contains(cls);
+				html.classList.toggle(cls, on);
+				syncButton(btn, on);
+				var s = readState(); s[key] = on; writeState(s);
+			});
+		}
+		bindToggle(blurBtn, "no-blur", "noBlur");
+		bindToggle(printBtn, "hide-print-btn", "hidePrint");
+	})();
+	</script>
+</div>
+
+<div class="sticky-head">
+<div class="head-inner">
+	<nav class="tabs">
+		<a data-tab="index" href="index.htm" title="Главная страница расписания">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+			<span class="lbl">Расписание</span>
+		</a>
+		<a data-tab="day" href="hp.htm" title="Текущее (фактическое) расписание на 1 день">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
+			<span class="lbl">Один день</span>
+		</a>
+		<span class="cur" data-tab="week">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line><path d="M8 14h.01"></path><path d="M12 14h.01"></path><path d="M16 14h.01"></path></svg>
+			<span class="lbl">Неделя</span>
+		</span>
+		<a data-tab="main" title="Плановое расписание на 1 или 2 недели" href="bp19.htm">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+			<span class="lbl">Основное</span>
+		</a>
+		<a data-tab="totals" href="vp19.htm">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+			<span class="lbl">Итоги</span>
+		</a>
+	</nav>
+
+	<div class="subnav">
+		<a data-subtab="groups" href="cg.htm">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+			<span class="lbl">группы</span>
+		</a>
+		<a data-subtab="teachers" href="cp.htm">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></svg>
+			<span class="lbl">преподаватели</span>
+		</a>
+		<a data-subtab="rooms" href="ca.htm">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"></rect><path d="M10 9h.01"></path><path d="M10 13h.01"></path></svg>
+			<span class="lbl">Аудитории</span>
+		</a>
+	</div>
+
+</div>
+
+<div class="print-menu">
+	<button type="button" class="print-btn" id="printMenuBtn" title="Настройки печати" aria-haspopup="true" aria-expanded="false">
+		<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+		<span class="lbl">Печать</span>
+		<svg class="chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+	</button>
+	<div class="print-panel" id="printPanel" inert aria-hidden="true">
+	<div class="print-panel-inner">
+	<div class="print-panel-content">
+		<label class="print-opt">
+			<input type="checkbox" id="printOptGray" checked>
+			<span>Выделять серым цветом</span>
+		</label>
+		<label class="print-opt">
+			<input type="checkbox" id="printOptHideEmpty" checked>
+			<span>Скрыть пустые строки</span>
+		</label>
+		<label class="print-opt">
+			<input type="checkbox" id="printOptHideSep" checked>
+			<span>Скрыть разделители</span>
+		</label>
+		<label class="print-opt">
+			<input type="checkbox" id="printOptAvoidBreak" checked>
+			<span>Блоки таблицы целиком</span>
+		</label>
+		<label class="print-opt">
+			<input type="checkbox" id="printOptTitle" checked>
+			<span>Печатать заголовок</span>
+		</label>
+		<label class="print-opt">
+			<input type="checkbox" id="printOptDate" checked>
+			<span>Печатать дату</span>
+		</label>
+		<div class="print-scale print-line-width">
+			<span class="print-margins-label">Толщина линий, px</span>
+			<div class="print-scale-row">
+				<input type="range" id="printLineWidthRange" min="1" max="5" step="1" value="1">
+				<input type="number" id="printLineWidthNumber" min="1" max="5" step="1" value="1">
+				<span class="print-scale-unit">px</span>
+			</div>
+			<button type="button" class="print-scale-reset" id="printLineWidthReset">Сбросить на 1px</button>
+		</div>
+		<div class="print-margins">
+			<span class="print-margins-label">Поля страницы, мм</span>
+			<div class="print-margins-grid">
+				<label>Сверху<input type="number" id="printMarginTop" min="0" max="500" step="1" value="10"></label>
+				<label>Справа<input type="number" id="printMarginRight" min="0" max="500" step="1" value="10"></label>
+				<label>Снизу<input type="number" id="printMarginBottom" min="0" max="500" step="1" value="10"></label>
+				<label>Слева<input type="number" id="printMarginLeft" min="0" max="500" step="1" value="10"></label>
+			</div>
+		</div>
+		<div class="print-scale">
+			<span class="print-margins-label">Масштаб</span>
+			<div class="print-scale-row">
+				<input type="range" id="printScaleRange" min="50" max="200" step="5" value="100">
+				<input type="number" id="printScaleNumber" min="50" max="200" step="1" value="100">
+				<span class="print-scale-unit">%</span>
+			</div>
+			<button type="button" class="print-scale-reset" id="printScaleReset">Сбросить на 100%</button>
+		</div>
+		<button type="button" class="print-go" id="printGoBtn">
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+			<span>Печать</span>
+		</button>
+	</div>
+	</div>
+	</div>
+</div>
+</div>
+
+<div class="lrg">
+
+	<div class=lrg2>
+
+		<h1>Преподаватель: Березин Д.В.</h1>
+
+		<!-- границы таблицы: чтобы отключить, class="inf no-borders" -->
+		<div class="table-wrap">
+		<table border="0" width="100%" class=inf cellspacing=1>
+		<tr><td align=right class=hd width="2%">День</td><td class=hd width="2%">Пара</td> <td align=right class=hd colspan="2">&nbsp;</td></tr><TR><td align=right class=hd0 colspan="4">&nbsp;</td></TR>
+<TR><TD align=center class=hd rowspan="6">19.10.2026<br>Пн</TD><TD align=center class=hd>1</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><TD align=center class=hd>2</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13871.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>3</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13871.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>4</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg532.htm" title="Расписание группы">4СА1,2</a> <a class="z2" href="ca1142.htm" title="Расписание аудитории">402</a><BR><a class="z3" href="j13886.htm" title="Журнал занятий">МДК.03.01</a></TD></TR><TR><TD align=center class=hd>5</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg532.htm" title="Расписание группы">4СА1,2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13887.htm" title="Журнал занятий">МДК.03.01</a></TD></TR><TR><TD align=center class=hd>6</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg532.htm" title="Расписание группы">4СА1,2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13887.htm" title="Журнал занятий">МДК.03.01</a></TD></TR><TR><td align=right class=hd0 colspan="4">&nbsp;</td></TR>
+<TR><TD align=center class=hd rowspan="6">20.10.2026<br>Вт</TD><TD align=center class=hd>1</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13871.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>2</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13871.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>3</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg532.htm" title="Расписание группы">4СА1,2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13893.htm" title="Журнал занятий">УП.03</a></TD></TR><TR><TD align=center class=hd>4</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg532.htm" title="Расписание группы">4СА1,2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13893.htm" title="Журнал занятий">УП.03</a></TD></TR><TR><TD align=center class=hd>5</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg532.htm" title="Расписание группы">4СА1,2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13893.htm" title="Журнал занятий">УП.03</a></TD></TR><TR><TD align=center class=hd>6</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><td align=right class=hd0 colspan="4">&nbsp;</td></TR>
+<TR><TD align=center class=hd rowspan="6">21.10.2026<br>Ср</TD><TD align=center class=hd>1</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg531.htm" title="Расписание группы">3СА1</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13857.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>2</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg531.htm" title="Расписание группы">3СА1</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13857.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>3</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1134.htm" title="Расписание аудитории">308</a><BR><a class="z3" href="j13870.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>4</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1134.htm" title="Расписание аудитории">308</a><BR><a class="z3" href="j13870.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>5</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13871.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>6</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13871.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><td align=right class=hd0 colspan="4">&nbsp;</td></TR>
+<TR><TD align=center class=hd rowspan="6">22.10.2026<br>Чт</TD><TD align=center class=hd>1</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13873.htm" title="Журнал занятий">УП.01</a></TD></TR><TR><TD align=center class=hd>2</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13873.htm" title="Журнал занятий">УП.01</a></TD></TR><TR><TD align=center class=hd>3</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13873.htm" title="Журнал занятий">УП.01</a></TD></TR><TR><TD align=center class=hd>4</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg532.htm" title="Расписание группы">4СА1,2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13893.htm" title="Журнал занятий">УП.03</a></TD></TR><TR><TD align=center class=hd>5</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg532.htm" title="Расписание группы">4СА1,2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13893.htm" title="Журнал занятий">УП.03</a></TD></TR><TR><TD align=center class=hd>6</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg532.htm" title="Расписание группы">4СА1,2</a> <a class="z2" href="ca1166.htm" title="Расписание аудитории">311</a><BR><a class="z3" href="j13893.htm" title="Журнал занятий">УП.03</a></TD></TR><TR><td align=right class=hd0 colspan="4">&nbsp;</td></TR>
+<TR><TD align=center class=hd rowspan="6">23.10.2026<br>Пт</TD><TD align=center class=hd>1</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1142.htm" title="Расписание аудитории">402</a><BR><a class="z3" href="j13870.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>2</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1142.htm" title="Расписание аудитории">402</a><BR><a class="z3" href="j13870.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>3</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg531.htm" title="Расписание группы">3СА1</a> <a class="z2" href="ca1158.htm" title="Расписание аудитории">108</a><BR><a class="z3" href="j13857.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>4</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg531.htm" title="Расписание группы">3СА1</a> <a class="z2" href="ca1158.htm" title="Расписание аудитории">108</a><BR><a class="z3" href="j13857.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>5</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><TD align=center class=hd>6</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><td align=right class=hd0 colspan="4">&nbsp;</td></TR>
+<TR><TD align=center class=hd rowspan="6">24.10.2026<br>Сб</TD><TD align=center class=hd>1</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1232.htm" title="Расписание аудитории">ДТ</a><BR><a class="z3" href="j13870.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>2</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg557.htm" title="Расписание группы">3СА2</a> <a class="z2" href="ca1232.htm" title="Расписание аудитории">ДТ</a><BR><a class="z3" href="j13870.htm" title="Журнал занятий">МДК.02.01</a></TD></TR><TR><TD align=center class=hd>3</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg530.htm" title="Расписание группы">2СА1</a> <a class="z2" href="ca1232.htm" title="Расписание аудитории">ДТ</a><BR><a class="z3" href="j13824.htm" title="Журнал занятий">МДК.01.02</a></TD></TR><TR><TD align=center class=hd>4</TD><TD onmouseover="this.style.backgroundColor='#FFDF93'" onmouseout="this.style.backgroundColor='#FFCF63'" class="ur" nowrap colspan="2"><a class="z1" href="cg530.htm" title="Расписание группы">2СА1</a> <a class="z2" href="ca1232.htm" title="Расписание аудитории">ДТ</a><BR><a class="z3" href="j13824.htm" title="Журнал занятий">МДК.01.02</a></TD></TR><TR><TD align=center class=hd>5</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><TD align=center class=hd>6</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><td align=right class=hd0 colspan="4">&nbsp;</td></TR>
+<TR><TD align=center class=hd rowspan="6">25.10.2026<br>Вс</TD><TD align=center class=hd>1</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><TD align=center class=hd>2</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><TD align=center class=hd>3</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><TD align=center class=hd>4</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><TD align=center class=hd>5</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR><TR><TD align=center class=hd>6</TD><TD class=nul nowrap colspan="2">&nbsp;</TD></TR>
+		</table>
+		</div>
+
+		<script>
+		(function(){
+			var h1 = document.querySelector(".lrg2 h1");
+			if (!h1) return;
+
+			var h1Text = h1.textContent.trim();
+			var ARROW_SVG = '<span class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg></span>';
+			var BASE_TEXT = "Расписание на неделю";
+
+			var file = (location.pathname.split("/").pop() || "").toLowerCase();
+
+			var GROUPS = "группы", TEACHERS = "преподаватели"; // программа заменяет на "классы"/"учителя" в школьной версии
+			var IS_SCHOOL = (GROUPS === "классы");
+
+			var GROUP_ROOT   = IS_SCHOOL ? "класс"  : "групп",
+				TEACHER_ROOT = IS_SCHOOL ? "учител" : "преподавател",
+				ROOM_ROOT    = "аудитори";
+
+			var FORMS = {
+				groups:   { gen: GROUP_ROOT   + (IS_SCHOOL ? "а" : "ы"), dat: GROUP_ROOT   + "ам" },
+				teachers: { gen: TEACHER_ROOT + "я",                     dat: TEACHER_ROOT + "ям" },
+				rooms:    { gen: ROOM_ROOT    + "и",                     dat: ROOM_ROOT    + "ям" }
+			};
+
+			// раздел определяется по слову в заголовке либо по имени файла: b/c/h/v + g/p/a
+			function keyFromText(s){
+				if (/груп|класс/i.test(s)) return "groups";
+				if (/препод|учител/i.test(s)) return "teachers";
+				if (/аудитор/i.test(s)) return "rooms";
+				return null;
+			}
+
+			h1.innerHTML = ARROW_SVG;
+			var wrap = document.createElement("span");
+			h1.appendChild(wrap);
+
+			// Журнал занятий (журнал уроков) лежит во вкладке «Итоги»
+			if (/^j\d*\.htm/.test(file) || /^журнал/i.test(h1Text)) {
+				wrap.textContent = h1Text;
+				document.title = h1Text + " \u2013 Экспресс-расписание";
+				return;
+			}
+
+			wrap.textContent = BASE_TEXT;
+
+			// Заголовок вида «Группа: 20», «Класс: 1-а», «Преподаватель: ...», «Учитель: ...», «Аудитория: ...»
+			var em = h1Text.match(/^(Группа|Класс|Преподаватель|Учитель|Аудитория)\s*:\s*(.+)$/i);
+			var key = null;
+			if (em) {
+				key = keyFromText(em[1]);
+			} else {
+				var fm = /^[bchv]([gpa])\d*\.htm/.exec(file);
+				if (fm) key = { g: "groups", p: "teachers", a: "rooms" }[fm[1]];
+				if (!key) key = keyFromText(h1Text);
+			}
+			if (!key) return;
+			var f = FORMS[key];
+
+			if (em) {
+				wrap.appendChild(document.createTextNode(" для " + f.gen + " "));
+				var eb = document.createElement("b");
+				eb.textContent = em[2].trim();
+				wrap.appendChild(eb);
+				return;
+			}
+
+			wrap.appendChild(document.createTextNode(" по "));
+			var b = document.createElement("b");
+			b.textContent = f.dat;
+			wrap.appendChild(b);
+
+			var a = document.querySelector('.subnav a[data-subtab="' + key + '"]');
+			if (a) {
+				var span = document.createElement("span");
+				span.className = "cur";
+				span.setAttribute("data-subtab", key);
+				span.innerHTML = a.innerHTML;
+				a.replaceWith(span);
+			}
+		})();
+		</script>
+
+		<script>
+		document.querySelectorAll("table.inf td.ur:first-child, table.inf td.vp:first-child, table.inf td.nul:first-child, table.inf td.no:first-child").forEach(function(td){
+			if (td.children.length === 0) {
+				td.textContent = td.textContent.replace(/\.\s*$/, "").trim();
+			}
+		});
+		</script>
+	<script>
+	(function(){
+		var table = document.querySelector("table.inf");
+		if (!table) return;
+		var subjectWord = "Дисциплина";
+		var rows = table.rows, mainRow = null, splitRow = null, limit = Math.min(rows.length, 6);
+		for (var i = 0; i < limit; i++){
+			var r = rows[i];
+			if (r.cells.length >= 2 && r.cells[1].textContent.trim().match(/^(Пара|Час|Урок)$/i)) {
+				mainRow = r;
+				if (/^(Час|Урок)$/i.test(r.cells[1].textContent.trim())) subjectWord = "Предмет";
+			} else if (r.cells.length >= 3 && r.cells[0].textContent.trim() === "" &&
+					   /^\d+$/.test(r.cells[2].textContent.trim())) {
+				splitRow = r;
+			}
+		}
+		if (mainRow) {
+			var last = mainRow.cells[mainRow.cells.length - 1];
+			last.textContent = subjectWord;
+			last.style.textAlign = "center";
+		}
+		if (splitRow && mainRow && splitRow.rowIndex < mainRow.rowIndex) {
+			mainRow.parentNode.insertBefore(splitRow, mainRow.nextSibling);
+		}
+	})();
+	</script>
+
+	<script>
+	(function(){
+		var table = document.querySelector("table.inf");
+		if (!table) return;
+		var rows = Array.prototype.slice.call(table.rows);
+		var i = 0;
+		while (i < rows.length) {
+			var row = rows[i];
+			var headerCell = row.cells.length ? row.cells[0] : null;
+			var isBlockStart = headerCell && headerCell.classList.contains("hd") && headerCell.hasAttribute("rowspan");
+			if (isBlockStart) {
+				var span = parseInt(headerCell.getAttribute("rowspan"), 10) || 1;
+				var blockRows = rows.slice(i, i + span);
+				var hasLesson = blockRows.some(function(r){
+					return r.querySelector("td.ur, td.urlt, td.vp") !== null;
+				});
+				if (!hasLesson && span > 1) {
+					var firstRow = blockRows[0];
+					var lastRow = blockRows[blockRows.length - 1];
+					var paraCell = firstRow.cells[1];
+					var lastParaCell = lastRow.cells[0];
+					var firstMatch = paraCell ? paraCell.textContent.match(/\d+/) : null;
+					var lastMatch = lastParaCell ? lastParaCell.textContent.match(/\d+/) : null;
+
+					var colspanSum = 0;
+					for (var k = 2; k < firstRow.cells.length; k++){
+						colspanSum += parseInt(firstRow.cells[k].getAttribute("colspan") || "1", 10);
+					}
+					while (firstRow.cells.length > 2) {
+						firstRow.deleteCell(2);
+					}
+					if (paraCell && firstMatch && lastMatch) {
+						paraCell.textContent = firstMatch[0] + "-" + lastMatch[0];
+					}
+					headerCell.setAttribute("rowspan", "1");
+					firstRow.classList.add("print-empty-row");
+					var emptyCell = document.createElement("td");
+					emptyCell.className = "no";
+					emptyCell.colSpan = colspanSum || 1;
+					emptyCell.style.textAlign = "center";
+					emptyCell.innerHTML = "<b>&mdash; пусто &mdash;</b>";
+					firstRow.appendChild(emptyCell);
+					for (var r = 1; r < blockRows.length; r++){
+						var rr = blockRows[r];
+						if (rr.parentNode) rr.parentNode.removeChild(rr);
+					}
+				}
+				i += span;
+			} else {
+				i += 1;
+			}
+		}
+	})();
+	</script>
+
+	<script>
+	(function(){
+		var table = document.querySelector("table.inf");
+		if (!table) return;
+		Array.prototype.forEach.call(table.rows, function(row){
+			if (row.cells.length === 1 && row.cells[0].classList.contains("hd0")) {
+				row.classList.add("print-sep-row");
+			}
+		});
+	})();
+	</script>
+
+	<script>
+	(function(){
+		var table = document.querySelector("table.inf");
+		if (!table) return;
+		var rows = Array.prototype.slice.call(table.rows);
+		var newBodies = [];
+		var i = 0;
+		while (i < rows.length) {
+			var row = rows[i];
+			var headerCell = row.cells.length ? row.cells[0] : null;
+			var isBlockStart = headerCell && headerCell.classList.contains("hd") && headerCell.hasAttribute("rowspan");
+			var tbody = document.createElement("tbody");
+			if (isBlockStart) {
+				var span = parseInt(headerCell.getAttribute("rowspan"), 10) || 1;
+				var blockRows = rows.slice(i, i + span);
+				tbody.className = "print-block";
+				blockRows.forEach(function(r){ tbody.appendChild(r); });
+				i += span;
+			} else {
+				tbody.appendChild(row);
+				i += 1;
+			}
+			newBodies.push(tbody);
+		}
+		while (table.firstChild) { table.removeChild(table.firstChild); }
+		newBodies.forEach(function(tb){ table.appendChild(tb); });
+	})();
+	</script>
+
+	<script>
+	(function(){
+		var menu = document.querySelector(".print-menu");
+		var btn = document.getElementById("printMenuBtn");
+		var panel = document.getElementById("printPanel");
+		var panelInner = panel.querySelector(".print-panel-inner");
+		var goBtn = document.getElementById("printGoBtn");
+		if (!menu || !btn || !panel || !panelInner || !goBtn) return;
+
+		var optGray = document.getElementById("printOptGray");
+		var optHideEmpty = document.getElementById("printOptHideEmpty");
+		var optHideSep = document.getElementById("printOptHideSep");
+		var optAvoidBreak = document.getElementById("printOptAvoidBreak");
+		var optTitle = document.getElementById("printOptTitle");
+		var optDate = document.getElementById("printOptDate");
+		var lwRange = document.getElementById("printLineWidthRange");
+		var lwNumber = document.getElementById("printLineWidthNumber");
+		var lwReset = document.getElementById("printLineWidthReset");
+		var mTop = document.getElementById("printMarginTop");
+		var mRight = document.getElementById("printMarginRight");
+		var mBottom = document.getElementById("printMarginBottom");
+		var mLeft = document.getElementById("printMarginLeft");
+		var scaleRange = document.getElementById("printScaleRange");
+		var scaleNumber = document.getElementById("printScaleNumber");
+		var scaleReset = document.getElementById("printScaleReset");
+		var scaleTarget = document.querySelector(".lrg2");
+
+		var STORAGE_KEY = "expressTimetablePrintSettings";
+
+		function loadSettings(){
+			try {
+				var raw = localStorage.getItem(STORAGE_KEY);
+				if (!raw) return;
+				var s = JSON.parse(raw);
+				if (typeof s.gray === "boolean") optGray.checked = s.gray;
+				if (typeof s.hideEmpty === "boolean") optHideEmpty.checked = s.hideEmpty;
+				if (typeof s.hideSep === "boolean") optHideSep.checked = s.hideSep;
+				if (typeof s.avoidBreak === "boolean") {
+					optAvoidBreak.checked = s.avoidBreak;
+				}
+				if (typeof s.title === "boolean") optTitle.checked = s.title;
+				if (typeof s.date === "boolean") optDate.checked = s.date;
+				if (s.lineWidth != null) {
+					var restoredLw = clampLineWidth(s.lineWidth);
+					lwRange.value = restoredLw;
+					lwNumber.value = restoredLw;
+					lastValidLineWidth = restoredLw;
+				}
+				if (s.margins) {
+					if (s.margins.top != null) mTop.value = s.margins.top;
+					if (s.margins.right != null) mRight.value = s.margins.right;
+					if (s.margins.bottom != null) mBottom.value = s.margins.bottom;
+					if (s.margins.left != null) mLeft.value = s.margins.left;
+					[mTop, mRight, mBottom, mLeft].forEach(function(input){ input.value = clampMargin(input); });
+				}
+				if (s.scale != null) {
+					var restored = parseInt(s.scale, 10);
+					if (isFinite(restored)) {
+						if (restored < 50) restored = 50;
+						if (restored > 200) restored = 200;
+						scaleRange.value = restored;
+						scaleNumber.value = restored;
+						lastValidScale = restored;
+					}
+				}
+			} catch (e) {}
+		}
+
+		function saveSettings(){
+			try {
+				localStorage.setItem(STORAGE_KEY, JSON.stringify({
+					gray: optGray.checked,
+					hideEmpty: optHideEmpty.checked,
+					hideSep: optHideSep.checked,
+					avoidBreak: optAvoidBreak.checked,
+					title: optTitle.checked,
+					date: optDate.checked,
+					margins: {
+						top: mTop.value, right: mRight.value,
+						bottom: mBottom.value, left: mLeft.value
+					},
+					scale: scaleNumber.value,
+					lineWidth: lwNumber.value
+				}));
+			} catch (e) {}
+		}
+
+		var SCALE_MIN = 50, SCALE_MAX = 200, SCALE_DEFAULT = 100;
+		var lastValidScale = SCALE_DEFAULT;
+
+		function clampScale(v){
+			var n = parseInt(v, 10);
+			if (!isFinite(n) || isNaN(n)) return null;
+			if (n < SCALE_MIN) n = SCALE_MIN;
+			if (n > SCALE_MAX) n = SCALE_MAX;
+			return n;
+		}
+		function applyScalePreview(v){
+			if (scaleTarget) scaleTarget.style.zoom = (v / 100);
+		}
+		function updateScaleFill(){
+			var min = parseFloat(scaleRange.min) || SCALE_MIN;
+			var max = parseFloat(scaleRange.max) || SCALE_MAX;
+			var val = parseFloat(scaleRange.value);
+			var pct = (val - min) / (max - min) * 100;
+			if (!isFinite(pct)) pct = 0;
+			if (pct < 0) pct = 0;
+			if (pct > 100) pct = 100;
+			scaleRange.style.setProperty("--print-scale-pct", pct + "%");
+		}
+		function commitScale(v, save){
+			var n = clampScale(v);
+			if (n === null) n = lastValidScale;
+			lastValidScale = n;
+			scaleRange.value = n;
+			scaleNumber.value = n;
+			applyScalePreview(n);
+			updateScaleFill();
+			if (save) saveSettings();
+			return n;
+		}
+
+		scaleRange.addEventListener("input", function(){
+			commitScale(scaleRange.value, true);
+		});
+
+		scaleNumber.addEventListener("change", function(){
+			commitScale(scaleNumber.value, true);
+		});
+		scaleNumber.addEventListener("keydown", function(e){
+			if (e.key === "Enter") {
+				commitScale(scaleNumber.value, true);
+			}
+		});
+		scaleNumber.addEventListener("blur", function(){
+			commitScale(scaleNumber.value, true);
+		});
+
+		scaleReset.addEventListener("click", function(e){ e.stopPropagation(); commitScale(SCALE_DEFAULT, true); });
+
+		var LW_MIN = 1, LW_MAX = 5, LW_DEFAULT = 1;
+		var lastValidLineWidth = LW_DEFAULT;
+
+		function clampLineWidth(v){
+			var n = parseFloat(v);
+			if (!isFinite(n) || isNaN(n)) return null;
+			if (n < LW_MIN) n = LW_MIN;
+			if (n > LW_MAX) n = LW_MAX;
+			n = Math.round(n);
+			return n;
+		}
+		function updateLineWidthFill(){
+			var min = parseFloat(lwRange.min) || LW_MIN;
+			var max = parseFloat(lwRange.max) || LW_MAX;
+			var val = parseFloat(lwRange.value);
+			var pct = (val - min) / (max - min) * 100;
+			if (!isFinite(pct)) pct = 0;
+			if (pct < 0) pct = 0;
+			if (pct > 100) pct = 100;
+			lwRange.style.setProperty("--print-scale-pct", pct + "%");
+		}
+		function commitLineWidth(v, save){
+			var n = clampLineWidth(v);
+			if (n === null) n = lastValidLineWidth;
+			lastValidLineWidth = n;
+			lwRange.value = n;
+			lwNumber.value = n;
+			updateLineWidthFill();
+			document.body.style.setProperty("--print-line-width", n + "px");
+			if (save) saveSettings();
+			return n;
+		}
+
+		lwRange.addEventListener("input", function(){
+			commitLineWidth(lwRange.value, true);
+		});
+		lwNumber.addEventListener("change", function(){
+			commitLineWidth(lwNumber.value, true);
+		});
+		lwNumber.addEventListener("keydown", function(e){
+			if (e.key === "Enter") {
+				commitLineWidth(lwNumber.value, true);
+			}
+		});
+		lwNumber.addEventListener("blur", function(){
+			commitLineWidth(lwNumber.value, true);
+		});
+		lwReset.addEventListener("click", function(e){ e.stopPropagation(); commitLineWidth(LW_DEFAULT, true); });
+
+		var marginInputs = [mTop, mRight, mBottom, mLeft];
+
+		function clampMargin(input){
+			var min = parseFloat(input.min);
+			var max = parseFloat(input.max);
+			var n = parseInt(input.value, 10);
+			if (!isFinite(n) || isNaN(n)) n = 0;
+			if (isFinite(min) && n < min) n = min;
+			if (isFinite(max) && n > max) n = max;
+			return n;
+		}
+		function commitMargin(input, save){
+			input.value = clampMargin(input);
+			if (save) saveSettings();
+		}
+		marginInputs.forEach(function(input){
+			input.addEventListener("change", function(){ commitMargin(input, true); });
+			input.addEventListener("keydown", function(e){
+				if (e.key === "Enter") commitMargin(input, true);
+			});
+			input.addEventListener("blur", function(){ commitMargin(input, true); });
+		});
+
+		function updateSeparatorVisibility(hideEmpty, hideSep){
+			var table = document.querySelector("table.inf");
+			if (!table) return;
+			var rows = Array.prototype.slice.call(table.rows);
+			var pending = [];
+			var seenVisibleContent = false;
+
+			function flush(showFirst){
+				pending.forEach(function(el, idx){
+					el.classList.toggle("print-sep-collapsed", !(showFirst && idx === 0));
+				});
+				pending = [];
+			}
+
+			rows.forEach(function(row){
+				if (row.classList.contains("print-sep-row")) {
+					pending.push(row);
+					return;
+				}
+				var isEmptyRow = row.classList.contains("print-empty-row");
+				var rowVisible = !(isEmptyRow && hideEmpty);
+				if (rowVisible) {
+					flush(seenVisibleContent && !hideSep);
+					seenVisibleContent = true;
+				}
+			});
+			flush(false);
+		}
+
+		function applyOptionClasses(){
+			document.body.classList.toggle("print-no-gray", !optGray.checked);
+			document.body.classList.toggle("print-hide-empty", optHideEmpty.checked);
+			document.body.classList.toggle("print-hide-title", !optTitle.checked);
+			document.body.classList.toggle("print-show-date", optDate.checked);
+			updateSeparatorVisibility(optHideEmpty.checked, optHideSep.checked);
+		}
+		[optGray, optHideEmpty, optHideSep, optAvoidBreak, optTitle, optDate].forEach(function(cb){
+			cb.addEventListener("change", function(){ applyOptionClasses(); saveSettings(); });
+		});
+
+		// Только перед печатью; полностью отменяется по afterprint
+		function setHeaderSplit(enable){
+			var blocks = document.querySelectorAll("table.inf tbody.print-block");
+			blocks.forEach(function(tbody){
+				var rows = tbody.rows;
+				if (!rows.length) return;
+				var headerCell = rows[0].cells.length ? rows[0].cells[0] : null;
+				if (!headerCell || !headerCell.classList.contains("hd")) return;
+
+				if (enable) {
+					if (headerCell.dataset.split === "1") return;
+					if (rows.length <= 1) return;
+					headerCell.setAttribute("rowspan", "1");
+					headerCell.dataset.split = "1";
+					for (var k = 1; k < rows.length; k++) {
+						var contCell = document.createElement("td");
+						contCell.className = headerCell.className;
+						contCell.classList.add("hd-split-cont");
+						if (headerCell.hasAttribute("width")) {
+							contCell.setAttribute("width", headerCell.getAttribute("width"));
+						}
+						rows[k].insertBefore(contCell, rows[k].firstChild);
+					}
+				} else {
+					if (headerCell.dataset.split !== "1") return;
+					Array.prototype.slice.call(tbody.querySelectorAll("td.hd-split-cont")).forEach(function(c){
+						c.parentNode.removeChild(c);
+					});
+					headerCell.setAttribute("rowspan", String(rows.length));
+					delete headerCell.dataset.split;
+				}
+			});
+		}
+		window.addEventListener("afterprint", function(){ setHeaderSplit(false); });
+
+		var OPEN_WIDTH = 250; // должно совпадать с шириной панели в style.css
+		var ANIM_MS = 300;    // должно совпадать с длительностью transition в style.css
+		var closedWidth = null;
+		var animating = false;
+		var cleanupTimer = null;
+
+		function ensureBtnHeightVar(){
+			var h = btn.getBoundingClientRect().height;
+			if (h > 0) menu.style.setProperty("--print-btn-h", h + "px");
+		}
+		ensureBtnHeightVar();
+
+		function saveOpenState(on){
+			try { sessionStorage.setItem("expressTimetablePrintPanelOpen", on ? "1" : "0"); } catch (e) {}
+		}
+
+		function openPanel(){
+			if (animating) return;
+			clearTimeout(cleanupTimer);
+			ensureBtnHeightVar();
+			if (closedWidth === null) closedWidth = btn.getBoundingClientRect().width;
+			menu.style.width = closedWidth + "px";
+			var openHeight = panelInner.scrollHeight;
+			panel.style.height = "0px";
+			void panel.offsetHeight; // принудительный reflow
+			panel.inert = false;
+			panel.setAttribute("aria-hidden", "false");
+			document.body.classList.add("print-preview-active");
+			applyOptionClasses();
+			applyScalePreview(scaleNumber.value);
+			saveOpenState(true);
+			animating = true;
+			requestAnimationFrame(function(){
+				menu.classList.add("open");
+				btn.classList.add("open");
+				menu.style.width = OPEN_WIDTH + "px";
+				panel.style.height = openHeight + "px";
+			});
+			btn.setAttribute("aria-expanded", "true");
+			cleanupTimer = window.setTimeout(function(){ animating = false; }, ANIM_MS);
+		}
+		function closePanel(){
+			if (animating || !menu.classList.contains("open")) return;
+			clearTimeout(cleanupTimer);
+			document.body.classList.remove("print-preview-active");
+			if (scaleTarget) scaleTarget.style.zoom = "";
+			menu.style.width = OPEN_WIDTH + "px";
+			panel.style.height = panel.getBoundingClientRect().height + "px";
+			void panel.offsetHeight;
+			saveOpenState(false);
+			animating = true;
+			requestAnimationFrame(function(){
+				menu.classList.remove("open");
+				btn.classList.remove("open");
+				menu.style.width = (closedWidth || OPEN_WIDTH) + "px";
+				panel.style.height = "0px";
+			});
+			panel.setAttribute("aria-hidden", "true");
+			btn.setAttribute("aria-expanded", "false");
+			cleanupTimer = window.setTimeout(function(){
+				panel.inert = true;
+				menu.style.width = "";
+				panel.style.height = "";
+				animating = false;
+			}, ANIM_MS);
+		}
+
+		btn.addEventListener("click", function(e){
+			e.stopPropagation();
+			if (menu.classList.contains("open")) closePanel(); else openPanel();
+		});
+		panel.addEventListener("click", function(e){ e.stopPropagation(); });
+
+		// Ссылка на другую страницу сайта (не якорь, не mailto, не внешний сайт), включая index.htm:
+		// на index.htm панели печати нет, но её состояние сохраняется и восстановится на следующей странице
+		function isSitePageLink(a){
+			var href = a.getAttribute("href");
+			if (!href || href.charAt(0) === "#") return false;
+			return a.protocol === location.protocol && a.host === location.host;
+		}
+
+		var pressedInsideMenu = false;
+		document.addEventListener("pointerdown", function(e){
+			pressedInsideMenu = !!(e.target.closest && e.target.closest(".print-menu"));
+		}, true);
+		document.addEventListener("click", function(e){
+			if (pressedInsideMenu) { pressedInsideMenu = false; return; }
+			// Переход по любой ссылке на другую страницу (вкладки, ссылки в таблицах): панель остаётся открытой,
+			// а её состояние запоминается и восстанавливается на следующей странице
+			var link = e.target.closest && e.target.closest("a[href]");
+			if (link && isSitePageLink(link)) return;
+			if (menu.classList.contains("open")) closePanel();
+		});
+		document.addEventListener("keydown", function(e){
+			if (e.key === "Escape" && menu.classList.contains("open")) closePanel();
+		});
+
+		// Вкладки - отдельные страницы: если панель была открыта, открываем её сразу, без анимации
+		(function(){
+			var wasOpen = false;
+			try { wasOpen = sessionStorage.getItem("expressTimetablePrintPanelOpen") === "1"; } catch (e) {}
+			if (!wasOpen || getComputedStyle(menu).display === "none") return;
+			var st = document.createElement("style");
+			st.textContent = ".print-menu, .print-menu *, .print-menu *::before, .print-menu *::after, .lrg2, .lrg2 *{ transition: none !important; }";
+			document.head.appendChild(st);
+			openPanel();
+			window.setTimeout(function(){ st.remove(); }, ANIM_MS + 100);
+		})();
+
+		function mm(input){
+			return clampMargin(input) + "mm";
+		}
+
+		goBtn.addEventListener("click", function(){
+			marginInputs.forEach(function(input){ commitMargin(input, false); });
+			saveSettings();
+
+			document.body.classList.toggle("print-avoid-break", optAvoidBreak.checked);
+			applyOptionClasses();
+			setHeaderSplit(!optAvoidBreak.checked);
+
+			var styleEl = document.getElementById("printDynamicStyle");
+			if (!styleEl) {
+				styleEl = document.createElement("style");
+				styleEl.id = "printDynamicStyle";
+				document.head.appendChild(styleEl);
+			}
+			var scalePct = clampScale(scaleNumber.value);
+			var lineWidthPx = commitLineWidth(lwNumber.value, false);
+			styleEl.textContent = "@media print{ @page{ margin: " +
+				mm(mTop) + " " + mm(mRight) + " " +
+				mm(mBottom) + " " + mm(mLeft) + " !important; } " +
+				".lrg2{ zoom: 1 !important; } " +
+				"body{ zoom: " + (scalePct / 100) + " !important; " +
+				"--print-line-width: " + lineWidthPx + "px; } }";
+
+			// Панель намеренно не закрывается
+			window.print();
+		});
+
+		loadSettings();
+		applyOptionClasses();
+		updateScaleFill();
+		updateLineWidthFill();
+	})();
+	</script>
+
+
+		<div class=ref>
+			<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+			Обновлено: 20.10.2026 в 15:14.
+		</div>
+
+		<hr>
+
+		<div class="copy">
+			<span>Copyright © 2002-2026 &middot; <a href="mailto:pbatishev@yandex.ru" class="copy">П.С. Батищев</a> &middot; <a href="https://pbprog.ru/catalog/timetable">Экспресс-расписание</a></span>
+		</div>
+
+	</div>
+</div>
+</body>
+</html>
