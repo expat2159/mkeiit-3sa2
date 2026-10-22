@@ -12,7 +12,7 @@ public final class Timetable {
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd.MM.uuuu");
     public static class Week implements Serializable {
         private static final long serialVersionUID = 1L;
-        public String url, updated;
+        public String url, updated, fingerprint;
         public TreeMap<LocalDate, List<Lesson>> days = new TreeMap<>();
     }
     public static class Lesson implements Serializable {
@@ -89,4 +89,13 @@ public final class Timetable {
         if(week.days.size()<1) throw new IllegalArgumentException("Не удалось прочитать даты расписания");
         return week;
     }
+    public static boolean sameDays(Week a,Week b){
+        if(a==null || b==null || !a.days.keySet().equals(b.days.keySet()))return false;
+        for(LocalDate day:a.days.keySet()){
+            List<Lesson> left=a.days.get(day),right=b.days.get(day);if(left.size()!=right.size())return false;
+            for(int i=0;i<left.size();i++){Lesson x=left.get(i),y=right.get(i);if(x.number!=y.number || x.subgroup!=y.subgroup || !Objects.equals(x.subject,y.subject) || !Objects.equals(x.room,y.room) || !Objects.equals(x.teacher,y.teacher))return false;}
+        }
+        return true;
+    }
+
 }

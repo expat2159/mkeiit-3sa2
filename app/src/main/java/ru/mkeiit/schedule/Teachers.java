@@ -21,18 +21,20 @@ public final class Teachers {
     }
     public static class Week implements Serializable {
         private static final long serialVersionUID=1L;
-        public String name,url,updated;
+        public String name,url,updated,fingerprint;
         public TreeMap<LocalDate,List<Lesson>> days=new TreeMap<>();
     }
     public static class Schedule implements Serializable {
         private static final long serialVersionUID=1L;
         public long checked;
+        public boolean lastChanged;
         public List<Week> weeks=new ArrayList<>();
     }
     public static class State implements Serializable {
         private static final long serialVersionUID=1L;
         public long checked,revision;
         public String error="";
+        public HashMap<String,String> catalogueHashes=new HashMap<>();
         public LinkedHashMap<String,Entry> entries=new LinkedHashMap<>();
         public HashMap<String,Schedule> schedules=new HashMap<>();
         public HashMap<String,String> errors=new HashMap<>();
@@ -103,6 +105,19 @@ public final class Teachers {
         }
         if(week.days.isEmpty())throw new IllegalArgumentException("В расписании преподавателя не найдены даты");
         return week;
+    }
+    public static boolean sameDays(Week a,Week b){
+        if(a==null || b==null || !a.days.keySet().equals(b.days.keySet()))return false;
+        for(LocalDate day:a.days.keySet()){
+            List<Lesson> left=a.days.get(day),right=b.days.get(day);if(left.size()!=right.size())return false;
+            for(int i=0;i<left.size();i++){Lesson x=left.get(i),y=right.get(i);if(x.number!=y.number || !Objects.equals(x.group,y.group) || !Objects.equals(x.subject,y.subject) || !Objects.equals(x.room,y.room))return false;}
+        }
+        return true;
+    }
+    public static boolean sameEntries(LinkedHashMap<String,Entry> a,LinkedHashMap<String,Entry> b){
+        if(!new ArrayList<>(a.keySet()).equals(new ArrayList<>(b.keySet())))return false;
+        for(String id:a.keySet()){Entry x=a.get(id),y=b.get(id);if(!Objects.equals(x.name,y.name) || !x.urls.equals(y.urls))return false;}
+        return true;
     }
     public static Week week(Schedule schedule,LocalDate day){if(schedule!=null)for(Week week:schedule.weeks)if(week.days.containsKey(day))return week;return null;}
     public static List<Lesson> lessons(Schedule schedule,LocalDate day){Week w=week(schedule,day);return w==null?Collections.emptyList():w.days.get(day);}

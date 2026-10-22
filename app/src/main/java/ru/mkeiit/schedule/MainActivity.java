@@ -96,13 +96,13 @@ public class MainActivity extends Activity {
         });
     }
     private void update(){
-        if(busy)return;busy=true;error="";teacherProblem="";refresh.setEnabled(false);status.setText("Обновляем расписания…");
+        if(busy)return;busy=true;error="";teacherProblem="";refresh.setEnabled(false);status.setText("Проверяем изменения…");
         final String refreshTeacher=selectedTab==1?selectedTeacherId:null;
         io.submit(()->{
             Repository.Snapshot fresh=null;String problem="";
             try{fresh=Repository.refresh(getApplicationContext());if(refreshTeacher!=null && !TeacherRepository.read(getApplicationContext()).visited.contains(refreshTeacher))TeacherRepository.refreshOne(getApplicationContext(),refreshTeacher,true);}catch(Exception e){problem="Не удалось обновить. Сохранённые данные доступны.";}
             final Repository.Snapshot result=fresh;final String message=problem;final Teachers.State teachers=TeacherRepository.read(getApplicationContext());
-            runOnUiThread(()->{if(isDestroyed())return;busy=false;refresh.setEnabled(true);error=message;acceptTeachers(teachers);if(result!=null)data=result;render();});
+            runOnUiThread(()->{if(isDestroyed())return;busy=false;refresh.setEnabled(true);error=message;acceptTeachers(teachers);if(result!=null)data=result;render();if(result!=null && result.syncMessage!=null)Toast.makeText(this,result.syncMessage,Toast.LENGTH_LONG).show();});
         });
     }
     private void render(){

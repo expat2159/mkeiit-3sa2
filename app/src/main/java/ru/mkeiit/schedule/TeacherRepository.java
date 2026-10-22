@@ -9,7 +9,7 @@ import java.util.*;
 /** All calls run on background executors. Separate cache keeps old group data compatible. */
 public final class TeacherRepository {
     public static synchronized Teachers.State read(Context context){
-        try(ObjectInputStream in=new ObjectInputStream(new AtomicFile(new File(context.getFilesDir(),"teachers.bin")).openRead())){return (Teachers.State)in.readObject();}
+        try(ObjectInputStream in=new ObjectInputStream(new AtomicFile(new File(context.getFilesDir(),"teachers.bin")).openRead())){Teachers.State state=(Teachers.State)in.readObject();if(state.catalogueHashes==null)state.catalogueHashes=new HashMap<>();return state;}
         catch(Exception e){return new Teachers.State();}
     }
     private static void save(Context context,Teachers.State state)throws IOException{
@@ -18,20 +18,28 @@ public final class TeacherRepository {
         try{ObjectOutputStream out=new ObjectOutputStream(stream);out.writeObject(state);out.flush();file.finishWrite(stream);}
         catch(IOException e){file.failWrite(stream);throw e;}
     }
-    public static synchronized void discover(Context context,Map<LocalDate,String> urls)throws IOException{
+    public static synchronized boolean discover(Context context,Map<LocalDate,String> urls)throws IOException{
         Teachers.State state=read(context);
         try{
-            LinkedHashMap<String,Teachers.Entry> entries=new LinkedHashMap<>();
+            if(urls.isEmpty())throw new IOException("Не найдены ссылки на списки преподавателей");
+            LinkedHashMap<LocalDate,ConditionalHttpCache.Resource> resources=new LinkedHashMap<>();HashMap<String,String> hashes=new HashMap<>();
             for(Map.Entry<LocalDate,String> week:urls.entrySet()){
-                for(Teachers.Entry entry:Teachers.entries(Repository.fetch(week.getValue()),week.getKey())){
-                    Teachers.Entry existing=entries.get(entry.id);
-                    if(existing==null)entries.put(entry.id,entry);else existing.urls.putAll(entry.urls);
-                }
+                ConditionalHttpCache.Resource resource=CachedNetwork.fetch(context,week.getValue(),3*1024*1024);resources.put(week.getKey(),resource);hashes.put(week.getValue(),resource.fingerprint);
             }
-            if(entries.isEmpty())throw new IOException("Список преподавателей пуст");
-            state.entries=entries;state.checked=System.currentTimeMillis();state.error="";save(context,state);
+            boolean changed=false;
+            if(!hashes.equals(state.catalogueHashes) || state.entries.isEmpty()){
+                LinkedHashMap<String,Teachers.Entry> entries=new LinkedHashMap<>();
+                for(Map.Entry<LocalDate,String> week:urls.entrySet()){
+                    for(Teachers.Entry entry:Teachers.entries(CachedNetwork.document(resources.get(week.getKey()),week.getValue()),week.getKey())){
+                        Teachers.Entry existing=entries.get(entry.id);if(existing==null)entries.put(entry.id,entry);else existing.urls.putAll(entry.urls);
+                    }
+                }
+                if(entries.isEmpty())throw new IOException("Список преподавателей пуст");
+                changed=!Teachers.sameEntries(state.entries,entries);if(changed)state.entries=entries;
+            }
+            state.catalogueHashes=hashes;state.checked=System.currentTimeMillis();state.error="";save(context,state);return changed;
         }catch(IOException | IllegalArgumentException e){
-            state.error="Не удалось обновить список преподавателей. Сохранённые данные доступны.";save(context,state);
+            state.error="Не удалось проверить список преподавателей. Сохранённые данные доступны.";save(context,state);
             if(e instanceof IOException)throw (IOException)e;throw new IOException(e.getMessage(),e);
         }
     }
@@ -45,26 +53,34 @@ public final class TeacherRepository {
             if(!found)coversWeeks=false;
         }
         if(!force && old!=null && coversWeeks && !state.errors.containsKey(id) && System.currentTimeMillis()-old.checked<Repository.DAY)return state;
-        state.visited.add(id);save(context,state);
+        if(state.visited.add(id))save(context,state);
         try{
-            Teachers.Schedule schedule=new Teachers.Schedule();
+            Teachers.Schedule schedule=new Teachers.Schedule();boolean changed=false;
             for(String url:entry.urls.values()){
                 if(Thread.currentThread().isInterrupted())throw new InterruptedIOException();
-                schedule.weeks.add(Teachers.parse(Repository.fetch(url),url,entry.name));
+                ConditionalHttpCache.Resource resource=CachedNetwork.fetch(context,url,3*1024*1024);
+                Teachers.Week cached=null;if(old!=null)for(Teachers.Week week:old.weeks)if(url.equals(week.url) && entry.name.equals(week.name)){cached=week;break;}
+                Teachers.Week week;
+                if(cached!=null && resource.fingerprint.equals(cached.fingerprint))week=cached;
+                else{week=Teachers.parse(CachedNetwork.document(resource,url),url,entry.name);week.fingerprint=resource.fingerprint;if(Teachers.sameDays(cached,week))week.days=cached.days;else changed=true;}
+                schedule.weeks.add(week);
             }
             if(Thread.currentThread().isInterrupted())throw new InterruptedIOException();
-            schedule.checked=System.currentTimeMillis();state.schedules.put(id,schedule);state.errors.remove(id);save(context,state);return state;
+            schedule.lastChanged=changed;schedule.checked=System.currentTimeMillis();state.schedules.put(id,schedule);state.errors.remove(id);save(context,state);return state;
         }catch(IOException | IllegalArgumentException e){
             state.errors.put(id,"Не удалось обновить расписание преподавателя. Проверьте интернет или попробуйте позже.");save(context,state);
             if(e instanceof IOException)throw (IOException)e;throw new IOException(e.getMessage(),e);
         }
     }
-    public static void refreshVisited(Context context){
+    public static class RefreshResult {public int changed,failed;}
+    public static RefreshResult refreshVisited(Context context){
+        RefreshResult result=new RefreshResult();
         List<String> visited;
         synchronized(TeacherRepository.class){visited=new ArrayList<>(read(context).visited);}
         for(String id:visited){
-            if(Thread.currentThread().isInterrupted())return;
-            try{refreshOne(context,id,true);}catch(IOException ignored){ }
+            if(Thread.currentThread().isInterrupted()){result.failed++;return result;}
+            try{Teachers.State updated=refreshOne(context,id,true);if(updated.schedules.get(id).lastChanged)result.changed++;}catch(IOException ignored){result.failed++;}
         }
+        return result;
     }
 }

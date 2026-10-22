@@ -8,12 +8,12 @@ import org.jsoup.nodes.Element;
 public final class Bells {
     public static class Image implements Serializable {
         private static final long serialVersionUID=1L;
-        public String title, url;
+        public String title, url, fingerprint;
         public byte[] bytes;
         public long checked;
     }
     public static class Source {
-        public String title, url;
+        public String title, url, fingerprint;
         Source(String title,String url) {this.title=title;this.url=url;}
     }
     public static Source find(Document document) {
