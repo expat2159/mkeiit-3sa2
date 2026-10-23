@@ -105,7 +105,7 @@ public class MainActivity extends Activity {
     }
     private void showSyncNotice(String message){
         clearSyncNotice();if(!resumed || isDestroyed())return;
-        syncNotice=message;renderStatus();status.postDelayed(clearNotice,5000);
+        syncNotice=message;renderStatus();status.postDelayed(clearNotice,3000);
     }
     private void update(){
         if(busy)return;clearSyncNotice();busy=true;error="";teacherProblem="";refresh.setEnabled(false);status.setText("Проверяем изменения…");
