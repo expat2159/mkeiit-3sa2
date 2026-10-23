@@ -308,15 +308,15 @@ public class MainActivity extends Activity {
         if(data.bellsError!=null)content.addView(text("Не удалось обновить звонки · сохранённый оригинал",11,muted,false));
         if(System.currentTimeMillis()-bells.checked>=Repository.DAY)content.addView(text("Изображение старше суток",11,muted,false));
         if(bitmapChecked!=bells.checked){bellsBitmap=BitmapFactory.decodeByteArray(bells.bytes,0,bells.bytes.length);bitmapChecked=bells.checked;}
-        ImageView image=new ImageView(this);image.setScaleType(ImageView.ScaleType.FIT_CENTER);image.setImageBitmap(bellsBitmap);image.setBackgroundColor(colors.surface);
-        image.setContentDescription("Расписание звонков с сайта. Нажмите, чтобы открыть на весь экран.");image.setFocusable(true);image.setOnClickListener(v->fullscreenBells());
+        ZoomImageView image=new ZoomImageView(this,bellsBitmap);image.setBackgroundColor(colors.surface);
+        image.setContentDescription("Расписание звонков. Разведите два пальца для увеличения. Нажмите, чтобы открыть на весь экран.");image.setFocusable(true);image.setOnClickListener(v->fullscreenBells());
         content.addView(image,new LinearLayout.LayoutParams(-1,0,1));
-        TextView hint=text("Нажмите изображение — на весь экран",11,muted,false);hint.setGravity(Gravity.CENTER);content.addView(hint,new LinearLayout.LayoutParams(-1,dp(24)));
+        TextView hint=text("Два пальца — масштаб · нажатие — весь экран",11,muted,false);hint.setGravity(Gravity.CENTER);content.addView(hint,new LinearLayout.LayoutParams(-1,dp(24)));
     }
     private void fullscreenBells(){
         Dialog dialog=new Dialog(this,colors.dark?android.R.style.Theme_Material_NoActionBar_Fullscreen:android.R.style.Theme_Material_Light_NoActionBar_Fullscreen);
         LinearLayout box=column();box.setBackgroundColor(colors.surface);
-        ImageView image=new ImageView(this);image.setScaleType(ImageView.ScaleType.FIT_CENTER);image.setImageBitmap(bellsBitmap);box.addView(image,new LinearLayout.LayoutParams(-1,0,1));
+        ZoomImageView image=new ZoomImageView(this,bellsBitmap);image.setContentDescription("Расписание звонков. Два пальца — масштаб, перетаскивание — перемещение.");box.addView(image,new LinearLayout.LayoutParams(-1,0,1));
         action(box,"Закрыть",()->dialog.dismiss());dialog.setContentView(box);dialog.show();dialog.getWindow().setLayout(-1,-1);
     }
     private Timetable.Week weekFor(LocalDate day){for(Timetable.Week week:data.weeks)if(week.days.containsKey(day))return week;return null;}
