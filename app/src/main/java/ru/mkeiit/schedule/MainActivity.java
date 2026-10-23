@@ -152,11 +152,14 @@ public class MainActivity extends Activity {
             content.addView(empty,new LinearLayout.LayoutParams(-1,0,1));return;
         }
         LinearLayout columns=row();
-        columns.addView(text("№",11,muted,true),new LinearLayout.LayoutParams(dp(28),dp(22)));
+        TextView numberHeading=text("№",11,muted,true);numberHeading.setGravity(Gravity.CENTER);
+        columns.addView(numberHeading,new LinearLayout.LayoutParams(dp(28),dp(22)));
         if(subgroup==0){
-            columns.addView(text("Подгруппа 1",11,muted,true),new LinearLayout.LayoutParams(0,dp(22),1));
-            columns.addView(text("Подгруппа 2",11,muted,true),new LinearLayout.LayoutParams(0,dp(22),1));
-        }else columns.addView(text("Предмет · кабинет · преподаватель",11,muted,false));
+            for(int group=1;group<=2;group++){
+                TextView heading=text("Подгруппа "+group,11,muted,true);heading.setGravity(Gravity.CENTER);
+                columns.addView(heading,new LinearLayout.LayoutParams(0,dp(22),1));
+            }
+        }
         content.addView(columns);
         LinearLayout table=column();content.addView(table,new LinearLayout.LayoutParams(-1,0,1));
         int count=6;for(Timetable.Lesson lesson:lessons)count=Math.max(count,lesson.number);
@@ -178,7 +181,7 @@ public class MainActivity extends Activity {
         }
         TextView cell=text(value.length()==0?"—":value.toString(),14,value.length()==0?muted:ink,false);
         boolean shared=false;for(Timetable.Lesson l:pair)if(l.subgroup==0)shared=true;
-        if(subgroup!=0 || (shared && group==0))cell.setGravity(Gravity.CENTER);
+        if(value.length()==0 || subgroup!=0 || (shared && group==0))cell.setGravity(Gravity.CENTER);
         cell.setPadding(dp(5),dp(2),dp(5),dp(2));cell.setMaxLines(4);cell.setEllipsize(TextUtils.TruncateAt.END);
         cell.setAutoSizeTextTypeUniformWithConfiguration(9,14,1,android.util.TypedValue.COMPLEX_UNIT_SP);
         row.addView(cell,new LinearLayout.LayoutParams(0,-1,1));
