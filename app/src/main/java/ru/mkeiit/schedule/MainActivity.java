@@ -180,7 +180,53 @@ public class MainActivity extends Activity {
         dates.setListener((date,first)->{selectedDay=date;stripStart=first;render();});
         content.addView(dates,new LinearLayout.LayoutParams(-1,dp(44)));
     }
-    private void pickDate(){new DatePickerDialog(this,(view,y,m,d)->{selectedDay=LocalDate.of(y,m+1,d);stripStart=null;render();},selectedDay.getYear(),selectedDay.getMonthValue()-1,selectedDay.getDayOfMonth()).show();}
+    private void pickDate(){showCalendar(selectedDay,day->{selectedDay=day;stripStart=null;render();});}
+    private void showCalendar(LocalDate initial,java.util.function.Consumer<LocalDate> onSelect){
+        Dialog dialog=new Dialog(this);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LocalDate[] chosen={initial};YearMonth[] visible={YearMonth.from(initial)};
+        LinearLayout panel=column();panel.setPadding(dp(16),dp(16),dp(16),dp(12));panel.setBackground(background(colors.background,24));
+        ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.addView(panel);
+        TextView caption=text("Выберите дату",14,muted,false);panel.addView(caption);
+        TextView selection=text("",22,ink,true);selection.setPadding(0,dp(8),0,dp(12));panel.addView(selection);
+        LinearLayout nav=row();panel.addView(nav);
+        LinearLayout grid=column();grid.setPadding(0,dp(8),0,dp(8));panel.addView(grid);
+        Runnable[] draw={null};
+        draw[0]=()->{
+            selection.setText(chosen[0].format(DateTimeFormatter.ofPattern("EEE, d MMMM yyyy",RU)));
+            nav.removeAllViews();
+            action(nav,"‹",()->{visible[0]=visible[0].minusMonths(1);draw[0].run();}).setContentDescription("Предыдущий месяц");
+            TextView month=text(visible[0].atDay(1).format(DateTimeFormatter.ofPattern("LLLL yyyy",RU)),16,ink,true);month.setGravity(Gravity.CENTER);nav.addView(month,new LinearLayout.LayoutParams(0,dp(48),1));
+            action(nav,"›",()->{visible[0]=visible[0].plusMonths(1);draw[0].run();}).setContentDescription("Следующий месяц");
+            grid.removeAllViews();LinearLayout weekdays=row();grid.addView(weekdays);
+            for(String name:new String[]{"пн","вт","ср","чт","пт","сб","вс"}){TextView label=text(name,12,muted,true);label.setGravity(Gravity.CENTER);weekdays.addView(label,new LinearLayout.LayoutParams(0,dp(32),1));}
+            List<LocalDate> dates=CalendarDates.cells(visible[0]);
+            for(int week=0;week<6;week++){
+                LinearLayout line=row();grid.addView(line);
+                for(int column=0;column<7;column++){
+                    int index=week*7+column;LocalDate date=index<dates.size()?dates.get(index):null;
+                    TextView cell=text(date==null?"":String.valueOf(date.getDayOfMonth()),16,ink,false);cell.setGravity(Gravity.CENTER);cell.setIncludeFontPadding(false);
+                    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(42),1);lp.setMargins(dp(1),dp(1),dp(1),dp(1));line.addView(cell,lp);
+                    if(date==null)continue;
+                    boolean selected=date.equals(chosen[0]);GradientDrawable fill=background(selected?blue:colors.surface,12);
+                    if(date.equals(today()) && !selected)fill.setStroke(dp(1),blue);
+                    cell.setTextColor(selected?colors.onAccent:ink);if(selected)cell.setTypeface(null,Typeface.BOLD);
+                    cell.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(0x338EAEFF),fill,background(0xFFFFFFFF,12)));
+                    cell.setFocusable(true);cell.setContentDescription(date.format(DateTimeFormatter.ofPattern("EEEE, d MMMM yyyy",RU)));cell.setSelected(selected);
+                    cell.setOnClickListener(v->{chosen[0]=date;draw[0].run();});
+                }
+            }
+        };
+        LinearLayout footer=row();panel.addView(footer);
+        action(footer,"Сегодня",()->{chosen[0]=today();visible[0]=YearMonth.from(chosen[0]);draw[0].run();});
+        footer.addView(new View(this),new LinearLayout.LayoutParams(0,1,1));
+        action(footer,"Отмена",()->dialog.dismiss());
+        action(footer,"Выбрать",()->{dialog.dismiss();onSelect.accept(chosen[0]);});
+        draw[0].run();dialog.setContentView(scroll);dialog.show();
+        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        android.util.DisplayMetrics metrics=getResources().getDisplayMetrics();
+        dialog.getWindow().setLayout(Math.min(metrics.widthPixels-dp(24),dp(400)),Math.min(metrics.heightPixels-dp(80),dp(540)));
+    }
+
     private void acceptTeachers(Teachers.State state){if(state.revision>=teacherData.revision)teacherData=state;}
     private void openTeacher(String id){
         selectedTeacherId=id;teacherDay=today();teacherStrip=null;teacherProblem="";render();loadTeacher(id);
@@ -251,7 +297,7 @@ public class MainActivity extends Activity {
     private void renderTeacherCalendar(Teachers.Schedule schedule){
         if(teacherStrip==null)teacherStrip=teacherDay.with(DayOfWeek.MONDAY);
         LinearLayout nav=row();action(nav,"‹",()->{teacherStrip=teacherStrip.minusWeeks(1);render();}).setContentDescription("Предыдущая неделя преподавателя");
-        TextView month=text(teacherStrip.plusDays(3).format(DateTimeFormatter.ofPattern("LLLL yyyy",RU))+" ▾",14,ink,true);month.setGravity(Gravity.CENTER);month.setFocusable(true);month.setOnClickListener(v->new DatePickerDialog(this,(picker,y,m,d)->{teacherDay=LocalDate.of(y,m+1,d);teacherStrip=null;render();},teacherDay.getYear(),teacherDay.getMonthValue()-1,teacherDay.getDayOfMonth()).show());nav.addView(month,new LinearLayout.LayoutParams(0,dp(40),1));
+        TextView month=text(teacherStrip.plusDays(3).format(DateTimeFormatter.ofPattern("LLLL yyyy",RU))+" ▾",14,ink,true);month.setGravity(Gravity.CENTER);month.setFocusable(true);month.setOnClickListener(v->showCalendar(teacherDay,day->{teacherDay=day;teacherStrip=null;render();}));nav.addView(month,new LinearLayout.LayoutParams(0,dp(40),1));
         action(nav,"Сегодня",()->{teacherDay=today();teacherStrip=null;render();});action(nav,"›",()->{teacherStrip=teacherStrip.plusWeeks(1);render();}).setContentDescription("Следующая неделя преподавателя");content.addView(nav);
         DayStrip strip=new DayStrip(this,teacherStrip,teacherDay,day->!Teachers.lessons(schedule,day).isEmpty(),day->Teachers.week(schedule,day)!=null);strip.setListener((day,first)->{teacherDay=day;teacherStrip=first;render();});content.addView(strip,new LinearLayout.LayoutParams(-1,dp(44)));
     }
@@ -283,7 +329,7 @@ public class MainActivity extends Activity {
     private TextView text(String value,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);t.setGravity(Gravity.CENTER_VERTICAL);t.setPadding(0,dp(2),0,dp(2));if(bold)t.setTypeface(null,Typeface.BOLD);return t;}
     private GradientDrawable background(int color,int radius){GradientDrawable bg=new GradientDrawable();bg.setColor(color);bg.setCornerRadius(dp(radius));return bg;}
     private Button action(LinearLayout parent,String title,Runnable callback){
-        boolean primary=title.equals("Обновить"),iconOnly=title.equals("⋮") || title.equals("‹") || title.equals("›");
+        boolean primary=title.equals("Обновить") || title.equals("Выбрать"),iconOnly=title.equals("⋮") || title.equals("‹") || title.equals("›");
         int icon=title.equals("Обновить")?AppIcon.REFRESH:title.equals("⋮")?AppIcon.SETTINGS:title.equals("Закрыть")?AppIcon.CLOSE:title.equals("›")?AppIcon.RIGHT:title.equals("Сегодня")?AppIcon.CALENDAR:AppIcon.LEFT;
         String label=title.equals("‹ К списку")?"К списку":title;
         int foreground=primary?colors.onAccent:blue;
@@ -295,7 +341,7 @@ public class MainActivity extends Activity {
         if(!primary)normal.setStroke(dp(1),colors.dark?0xFF34445F:0xFFDDE5F3);
         android.graphics.drawable.StateListDrawable states=new android.graphics.drawable.StateListDrawable();states.addState(new int[]{-android.R.attr.state_enabled},background(colors.surface,12));states.addState(new int[]{},normal);
         android.graphics.drawable.RippleDrawable ripple=new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf((foreground & 0x00FFFFFF) | 0x33000000),states,background(0xFFFFFFFF,12));button.setBackground(ripple);
-        AppIcon drawable=new AppIcon(icon,foreground);drawable.setBounds(0,0,dp(18),dp(18));drawable.setTintList(textColors);button.setCompoundDrawables(drawable,null,null,null);button.setCompoundDrawablePadding(iconOnly?0:dp(5));
+        AppIcon drawable=new AppIcon(icon,foreground);drawable.setBounds(0,0,dp(18),dp(18));drawable.setTintList(textColors);button.setCompoundDrawables(title.equals("Отмена") || title.equals("Выбрать")?null:drawable,null,null,null);button.setCompoundDrawablePadding(iconOnly?0:dp(5));
         String description=title.equals("⋮")?"Настройки":title.equals("‹")?"Предыдущая неделя":title.equals("›")?"Следующая неделя":label;button.setContentDescription(description);button.setTooltipText(description);
         button.setOnClickListener(v->callback.run());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(iconOnly?dp(44):-2,dp(44));lp.setMargins(dp(2),dp(2),dp(2),dp(2));if(parent.getOrientation()==LinearLayout.VERTICAL)lp.gravity=Gravity.CENTER_HORIZONTAL;parent.addView(button,lp);return button;
     }

@@ -30,7 +30,7 @@ run(tools/'aapt2','compile','--dir',root/'app/src/main/res','-o',build/'resource
 manifest=build/'AndroidManifest.xml'
 manifest.write_text((root/'app/src/main/AndroidManifest.xml').read_text().replace('<manifest ', '<manifest package="ru.mkeiit.schedule" ',1))
 run(tools/'aapt2','link','-o',build/'base.apk','-I',android,'--manifest',manifest,
-    '-A',root/'app/src/main/assets','--version-code','12','--version-name','1.11','--min-sdk-version','26','--target-sdk-version','35',build/'resources.zip')
+    '-A',root/'app/src/main/assets','--version-code','13','--version-name','1.12','--min-sdk-version','26','--target-sdk-version','35',build/'resources.zip')
 with zipfile.ZipFile(build/'classes.jar','w') as jar:
     for f in sorted(classes.rglob('*.class')): jar.write(f,f.relative_to(classes))
 run(tools/'d8','--lib',android,'--min-api','26','--output',build,build/'classes.jar',root/'app/libs/jsoup-1.18.3.jar')
@@ -41,7 +41,7 @@ key=build/'test-signing.keystore'
 if not key.exists():
     run('keytool','-genkeypair','-keystore',key,'-storepass','android','-keypass','android','-alias','androiddebugkey',
         '-dname','CN=3SA2 Test Build','-keyalg','RSA','-keysize','2048','-validity','10000')
-output=dist/'3SA2-raspisanie-1.11.apk'
+output=dist/'3SA2-raspisanie-1.12.apk'
 run(tools/'apksigner','sign','--ks',key,'--ks-pass','pass:android','--key-pass','pass:android','--out',output,build/'aligned.apk')
 run(tools/'apksigner','verify','--verbose',output)
 print(output)
