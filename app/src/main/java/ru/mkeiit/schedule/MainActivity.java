@@ -196,7 +196,8 @@ public class MainActivity extends Activity {
         action(nav,"›",()->{stripStart=stripStart.plusWeeks(1);render();}).setContentDescription("Следующая неделя");content.addView(nav);
         DayStrip dates=new DayStrip(this,stripStart,selectedDay,date->!lessonsFor(date).isEmpty(),date->weekFor(date)!=null);
         dates.setListener((date,first)->{selectedDay=date;stripStart=first;render();});
-        content.addView(dates,new LinearLayout.LayoutParams(-1,dp(44)));
+        LinearLayout.LayoutParams datesLayout=new LinearLayout.LayoutParams(-1,dp(44));datesLayout.topMargin=dp(8);
+        content.addView(dates,datesLayout);
     }
     private void pickDate(){showCalendar(selectedDay,day->{selectedDay=day;stripStart=null;render();});}
     private void showCalendar(LocalDate initial,java.util.function.Consumer<LocalDate> onSelect){
@@ -317,7 +318,7 @@ public class MainActivity extends Activity {
         LinearLayout nav=row();action(nav,"‹",()->{teacherStrip=teacherStrip.minusWeeks(1);render();}).setContentDescription("Предыдущая неделя преподавателя");
         TextView month=text(teacherStrip.plusDays(3).format(DateTimeFormatter.ofPattern("LLLL yyyy",RU))+" ▾",14,ink,true);month.setGravity(Gravity.CENTER);month.setFocusable(true);month.setOnClickListener(v->showCalendar(teacherDay,day->{teacherDay=day;teacherStrip=null;render();}));nav.addView(month,new LinearLayout.LayoutParams(0,dp(40),1));
         action(nav,"Сегодня",()->{teacherDay=today();teacherStrip=null;render();});action(nav,"›",()->{teacherStrip=teacherStrip.plusWeeks(1);render();}).setContentDescription("Следующая неделя преподавателя");content.addView(nav);
-        DayStrip strip=new DayStrip(this,teacherStrip,teacherDay,day->!Teachers.lessons(schedule,day).isEmpty(),day->Teachers.week(schedule,day)!=null);strip.setListener((day,first)->{teacherDay=day;teacherStrip=first;render();});content.addView(strip,new LinearLayout.LayoutParams(-1,dp(44)));
+        DayStrip strip=new DayStrip(this,teacherStrip,teacherDay,day->!Teachers.lessons(schedule,day).isEmpty(),day->Teachers.week(schedule,day)!=null);strip.setListener((day,first)->{teacherDay=day;teacherStrip=first;render();});LinearLayout.LayoutParams stripLayout=new LinearLayout.LayoutParams(-1,dp(44));stripLayout.topMargin=dp(8);content.addView(strip,stripLayout);
     }
     private void renderBells(){
         Bells.Image bells=data.bells;
