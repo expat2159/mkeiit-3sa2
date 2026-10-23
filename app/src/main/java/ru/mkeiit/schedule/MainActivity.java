@@ -37,7 +37,9 @@ public class MainActivity extends Activity {
     private Button refresh;
     private int subgroup,selectedTab;
     private LocalDate selectedDay=LocalDate.now(ZoneId.of("Europe/Moscow"));
-    private boolean busy;
+    private boolean busy,resumed;
+    private String syncNotice="";
+    private final Runnable clearNotice=()->{syncNotice="";renderStatus();};
     private String error="";
     private Bitmap bellsBitmap;
     private long bitmapChecked=-1;
@@ -89,21 +91,37 @@ public class MainActivity extends Activity {
     }
     private boolean needsUpdate(){return System.currentTimeMillis()-data.checked>=Repository.DAY || data.bells==null || teacherData.entries.isEmpty();}
     @Override protected void onResume(){
-        super.onResume();
+        super.onResume();resumed=true;
         if(content!=null && !busy)io.submit(()->{
             Repository.Snapshot cached=Repository.read(this);Teachers.State teachers=TeacherRepository.read(this);
             runOnUiThread(()->{if(isDestroyed()||busy)return;if(cached.checked>data.checked)data=cached;acceptTeachers(teachers);render();if(needsUpdate())update();});
         });
     }
+    @Override protected void onPause(){
+        resumed=false;clearSyncNotice();super.onPause();
+    }
+    private void clearSyncNotice(){
+        syncNotice="";if(status!=null){status.removeCallbacks(clearNotice);renderStatus();}
+    }
+    private void showSyncNotice(String message){
+        clearSyncNotice();if(!resumed || isDestroyed())return;
+        syncNotice=message;renderStatus();status.postDelayed(clearNotice,5000);
+    }
     private void update(){
-        if(busy)return;busy=true;error="";teacherProblem="";refresh.setEnabled(false);status.setText("Проверяем изменения…");
+        if(busy)return;clearSyncNotice();busy=true;error="";teacherProblem="";refresh.setEnabled(false);status.setText("Проверяем изменения…");
         final String refreshTeacher=selectedTab==1?selectedTeacherId:null;
         io.submit(()->{
             Repository.Snapshot fresh=null;String problem="";
             try{fresh=Repository.refresh(getApplicationContext());if(refreshTeacher!=null && !TeacherRepository.read(getApplicationContext()).visited.contains(refreshTeacher))TeacherRepository.refreshOne(getApplicationContext(),refreshTeacher,true);}catch(Exception e){problem="Не удалось обновить. Сохранённые данные доступны.";}
             final Repository.Snapshot result=fresh;final String message=problem;final Teachers.State teachers=TeacherRepository.read(getApplicationContext());
-            runOnUiThread(()->{if(isDestroyed())return;busy=false;refresh.setEnabled(true);error=message;acceptTeachers(teachers);if(result!=null)data=result;render();if(result!=null && result.syncMessage!=null)Toast.makeText(this,result.syncMessage,Toast.LENGTH_LONG).show();});
+            runOnUiThread(()->{if(isDestroyed())return;busy=false;refresh.setEnabled(true);error=message;acceptTeachers(teachers);if(result!=null)data=result;render();if(result!=null && result.syncMessage!=null)showSyncNotice(result.syncMessage);});
         });
+    }
+    private void renderStatus(){
+        if(status!=null && !busy){
+            String checked=data.checked==0?"Ещё не загружено":"Проверено "+DateTimeFormatter.ofPattern("dd.MM HH:mm",RU).format(Instant.ofEpochMilli(data.checked).atZone(ZoneId.systemDefault()));
+            status.setText(!syncNotice.isEmpty() && error.isEmpty()?syncNotice:error.isEmpty()?checked+(data.checked>0 && System.currentTimeMillis()-data.checked>=Repository.DAY?" · данные старше суток":" · ежедневно"):error);
+        }
     }
     private void render(){
         if(content==null)return;
@@ -117,10 +135,7 @@ public class MainActivity extends Activity {
             LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,dp(40),1);lp.setMargins(0,dp(4),dp(4),dp(4));tabs.addView(t,lp);
         }
         groups.setVisibility(selectedTab==0?View.VISIBLE:View.GONE);content.removeAllViews();
-        if(!busy){
-            String checked=data.checked==0?"Ещё не загружено":"Проверено "+DateTimeFormatter.ofPattern("dd.MM HH:mm",RU).format(Instant.ofEpochMilli(data.checked).atZone(ZoneId.systemDefault()));
-            status.setText(error.isEmpty()?checked+(data.checked>0 && System.currentTimeMillis()-data.checked>=Repository.DAY?" · данные старше суток":" · ежедневно"):error);
-        }
+        renderStatus();
         if(selectedTab==2){renderBells();return;}
         if(selectedTab==1){renderTeachers();return;}
         renderWeek();
@@ -345,7 +360,7 @@ public class MainActivity extends Activity {
         String description=title.equals("⋮")?"Настройки":title.equals("‹")?"Предыдущая неделя":title.equals("›")?"Следующая неделя":label;button.setContentDescription(description);button.setTooltipText(description);
         button.setOnClickListener(v->callback.run());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(iconOnly?dp(44):-2,dp(44));lp.setMargins(dp(2),dp(2),dp(2),dp(2));if(parent.getOrientation()==LinearLayout.VERTICAL)lp.gravity=Gravity.CENTER_HORIZONTAL;parent.addView(button,lp);return button;
     }
-    private void open(String url){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(ActivityNotFoundException e){Toast.makeText(this,"Браузер не установлен",0).show();}}
+    private void open(String url){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(ActivityNotFoundException e){showSyncNotice("Браузер не установлен");}}
     private void settings(){
         if(settingsDialog!=null && settingsDialog.isShowing())return;
         final Dialog dialog=new Dialog(this);settingsDialog=dialog;
@@ -374,5 +389,5 @@ public class MainActivity extends Activity {
         dialog.getWindow().setLayout(Math.min(metrics.widthPixels-dp(24),dp(400)),Math.min(metrics.heightPixels-dp(80),dp(480)));
     }
     @Override protected void onSaveInstanceState(Bundle out){out.putBoolean("showSettings",reopenSettings || (settingsDialog!=null && settingsDialog.isShowing()));if(stripStart!=null)out.putString("stripStart",stripStart.toString());out.putString("teacherId",selectedTeacherId);out.putString("teacherQuery",teacherQuery);out.putInt("teacherScrollY",teacherScroll!=null && teacherScroll.getParent()!=null?teacherScroll.getScrollY():teacherScrollY);out.putString("teacherDay",teacherDay.toString());if(teacherStrip!=null)out.putString("teacherStrip",teacherStrip.toString());out.putString("selectedDay",selectedDay.toString());out.putInt("selectedTab",selectedTab);super.onSaveInstanceState(out);}
-    @Override public void onDestroy(){io.shutdownNow();teacherIo.shutdownNow();if(settingsDialog!=null)settingsDialog.dismiss();super.onDestroy();}
+    @Override public void onDestroy(){clearSyncNotice();io.shutdownNow();teacherIo.shutdownNow();if(settingsDialog!=null)settingsDialog.dismiss();super.onDestroy();}
 }
