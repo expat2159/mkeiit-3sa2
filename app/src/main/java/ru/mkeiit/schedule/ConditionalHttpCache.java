@@ -32,7 +32,12 @@ public final class ConditionalHttpCache {
     private final long maxStorage;
     public ConditionalHttpCache(File directory,Transport transport){this(directory,transport,64L*1024*1024);}
     public ConditionalHttpCache(File directory,Transport transport,long maxStorage){this.directory=directory;this.transport=transport;this.maxStorage=maxStorage;}
-    public synchronized Resource get(String url,int maxBytes)throws IOException{
+    public Resource get(String url,int maxBytes)throws IOException{
+        synchronized(lockFor(url)){return getLocked(url,maxBytes);}
+    }
+    private final Object[] locks=new Object[32];
+    private Object lockFor(String url){synchronized(locks){int i=(url.hashCode() & 0x7fffffff)%locks.length;if(locks[i]==null)locks[i]=new Object();return locks[i];}}
+    private Resource getLocked(String url,int maxBytes)throws IOException{
         if(Thread.currentThread().isInterrupted())throw new InterruptedIOException();
         Record old=read(url,maxBytes);Map<String,String> headers=new LinkedHashMap<>();
         if(old!=null){if(old.etag!=null)headers.put("If-None-Match",old.etag);if(old.modifiedSince!=null)headers.put("If-Modified-Since",old.modifiedSince);}
@@ -81,7 +86,7 @@ public final class ConditionalHttpCache {
         }finally{temporary.delete();}
         prune(target);
     }
-    private void prune(File protectedFile){
+    private synchronized void prune(File protectedFile){
         File[] files=directory.listFiles((dir,name)->name.endsWith(".http"));if(files==null)return;
         long total=0;for(File file:files)total+=file.length();if(total<=maxStorage)return;
         Arrays.sort(files,Comparator.comparingLong(File::lastModified));

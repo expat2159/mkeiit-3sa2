@@ -5,6 +5,7 @@ import android.util.AtomicFile;
 import java.io.*;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.concurrent.*;
 
 /** All calls run on background executors. Separate cache keeps old group data compatible. */
 public final class TeacherRepository {
@@ -74,13 +75,38 @@ public final class TeacherRepository {
     }
     public static class RefreshResult {public int changed,failed;}
     public static RefreshResult refreshVisited(Context context){
-        RefreshResult result=new RefreshResult();
-        List<String> visited;
-        synchronized(TeacherRepository.class){visited=new ArrayList<>(read(context).visited);}
-        for(String id:visited){
-            if(Thread.currentThread().isInterrupted()){result.failed++;return result;}
-            try{Teachers.State updated=refreshOne(context,id,true);if(updated.schedules.get(id).lastChanged)result.changed++;}catch(IOException ignored){result.failed++;}
-        }
-        return result;
+        RefreshResult result=new RefreshResult();Teachers.State snapshot=read(context);
+        ExecutorService pool=Executors.newFixedThreadPool(3);
+        Map<String,Future<ConditionalHttpCache.Resource>> requests=new LinkedHashMap<>();
+        try{
+            for(String id:snapshot.visited){Teachers.Entry entry=snapshot.entries.get(id);if(entry!=null)for(String url:entry.urls.values())if(!requests.containsKey(url))requests.put(url,pool.submit(()->CachedNetwork.fetch(context,url,3*1024*1024)));}
+            Map<String,ConditionalHttpCache.Resource> fetched=new HashMap<>();
+            for(Map.Entry<String,Future<ConditionalHttpCache.Resource>> request:requests.entrySet()){
+                try{fetched.put(request.getKey(),request.getValue().get());}
+                catch(InterruptedException e){Thread.currentThread().interrupt();result.failed++;return result;}
+                catch(ExecutionException e){/* Each teacher retains its old data on failure. */}
+            }
+            synchronized(TeacherRepository.class){
+                Teachers.State state=read(context);
+                for(String id:snapshot.visited){
+                    Teachers.Entry entry=state.entries.get(id),original=snapshot.entries.get(id);Teachers.Schedule old=state.schedules.get(id);
+                    if(entry==null || original==null || !entry.name.equals(original.name) || !entry.urls.equals(original.urls)){result.failed++;continue;}
+                    try{
+                        Teachers.Schedule schedule=new Teachers.Schedule();boolean changed=false;
+                        for(String url:entry.urls.values()){
+                            ConditionalHttpCache.Resource resource=fetched.get(url);if(resource==null)throw new IOException("Не удалось проверить файл");
+                            Teachers.Week cached=null;if(old!=null)for(Teachers.Week week:old.weeks)if(url.equals(week.url) && entry.name.equals(week.name)){cached=week;break;}
+                            Teachers.Week week;
+                            if(cached!=null && resource.fingerprint.equals(cached.fingerprint))week=cached;
+                            else{week=Teachers.parse(CachedNetwork.document(resource,url),url,entry.name);week.fingerprint=resource.fingerprint;if(Teachers.sameDays(cached,week))week.days=cached.days;else changed=true;}
+                            schedule.weeks.add(week);
+                        }
+                        schedule.lastChanged=changed;schedule.checked=System.currentTimeMillis();state.schedules.put(id,schedule);state.errors.remove(id);if(changed)result.changed++;
+                    }catch(IOException | IllegalArgumentException e){state.errors.put(id,"Не удалось обновить расписание преподавателя. Проверьте интернет или попробуйте позже.");result.failed++;}
+                }
+                try{if(!Thread.currentThread().isInterrupted())save(context,state);}catch(IOException e){result.failed++;}
+            }
+            return result;
+        }finally{pool.shutdownNow();}
     }
 }
