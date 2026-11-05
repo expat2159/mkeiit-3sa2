@@ -37,6 +37,14 @@ public final class Timetable {
         }
         return result;
     }
+    /** Current (or most recent past) week and every published future week. */
+    public static List<LocalDate> selectedWeeks(NavigableMap<LocalDate,String> weeks,LocalDate monday) {
+        List<LocalDate> result=new ArrayList<>();
+        LocalDate current=weeks.floorKey(monday);
+        if(current!=null)result.add(current);
+        result.addAll(weeks.tailMap(monday,false).keySet());
+        return result;
+    }
     public static boolean trusted(String url) {
         try {
             java.net.URI u=java.net.URI.create(url);

@@ -10,6 +10,13 @@ public class ParserTest {
         String base="https://mkeiit.ru/wp-content/uploads/2025/raspisanie/19.10.26-24.10.26/";
         TreeMap<LocalDate,String> links=Timetable.weeks(Jsoup.parse(new File("tests/fixtures/index.html"),null,Timetable.SOURCE));
         check(links.size()==9,"Discover all published weeks");
+        TreeMap<LocalDate,String> published=new TreeMap<>();
+        for(int day:new int[]{2,9,16,23})published.put(LocalDate.of(2026,11,day),"week"+day);
+        check(Timetable.selectedWeeks(published,LocalDate.of(2026,11,2)).equals(new ArrayList<>(published.keySet())),"All published future weeks included, including 16 November");
+        check(Timetable.selectedWeeks(published,LocalDate.of(2026,11,9)).equals(new ArrayList<>(published.tailMap(LocalDate.of(2026,11,9),true).keySet())),"Keep current and future weeks, omit older weeks");
+        check(Timetable.selectedWeeks(published,LocalDate.of(2026,10,26)).size()==4,"All future weeks when no current week");
+        check(Timetable.selectedWeeks(published,LocalDate.of(2026,11,30)).equals(Collections.singletonList(LocalDate.of(2026,11,23))),"Keep latest when no upcoming week");
+        check(Timetable.selectedWeeks(new TreeMap<>(),LocalDate.of(2026,11,2)).isEmpty(),"Empty publication");
         check(links.get(LocalDate.of(2026,10,19)).equals(base+"cg.htm"),"Current week URL");
         check(Timetable.groupUrl(Jsoup.parse(new File("tests/fixtures/groups.html"),null,base+"cg.htm")).equals(base+"cg557.htm"),"Find group by text");
         Timetable.Week week=Timetable.parse(Jsoup.parse(new File("tests/fixtures/group-windows1251.html"),null,base+"cg557.htm"),base+"cg557.htm");

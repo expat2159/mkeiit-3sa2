@@ -32,8 +32,7 @@ public final class Repository {
             TreeMap<LocalDate,String> links=Timetable.weeks(index);
             if(links.isEmpty())throw new IOException("Ссылки на недели не найдены. Возможно, сайт изменился.");
             LocalDate monday=LocalDate.now(java.time.ZoneId.of("Europe/Moscow")).with(java.time.DayOfWeek.MONDAY);
-            List<LocalDate> selected=new ArrayList<>();LocalDate previous=links.floorKey(monday),next=links.higherKey(monday);
-            if(previous!=null)selected.add(previous);if(next!=null)selected.add(next);if(selected.isEmpty())selected.add(links.lastKey());
+            List<LocalDate> selected=Timetable.selectedWeeks(links,monday);
             Snapshot result=new Snapshot();List<String> changes=new ArrayList<>();boolean partial=false,groupChanged=false;
             ExecutorService pool=Executors.newFixedThreadPool(3);
             try{
