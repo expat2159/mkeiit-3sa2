@@ -108,7 +108,7 @@ public class MainActivity extends Activity {
         });
     }
     @Override protected void onPause(){
-        resumed=false;AppUpdates.pause(this);clearSyncNotice();super.onPause();
+        resumed=false;closeUpdateCheckProgress();AppUpdates.pause(this);clearSyncNotice();super.onPause();
     }
     private void clearSyncNotice(){
         syncNotice="";if(status!=null){status.removeCallbacks(clearNotice);renderStatus();}
@@ -390,6 +390,20 @@ public class MainActivity extends Activity {
         dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-dp(24),dp(400)),WindowManager.LayoutParams.WRAP_CONTENT);
     }
+    private Dialog updateCheckProgress;
+    void showUpdateCheckProgress(){
+        if(!resumed || isFinishing() || isDestroyed() || updateCheckProgress!=null)return;
+        Dialog dialog=new Dialog(this);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout panel=column();panel.setPadding(dp(20),dp(20),dp(20),dp(20));panel.setBackground(background(colors.background,20));
+        panel.addView(text("Проверяются обновления",20,ink,true));
+        ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setIndeterminate(true);
+        bar.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(blue));
+        LinearLayout.LayoutParams size=new LinearLayout.LayoutParams(-1,dp(10));size.setMargins(0,dp(18),0,dp(4));panel.addView(bar,size);
+        dialog.setCancelable(false);dialog.setContentView(panel);dialog.show();dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-dp(24),dp(400)),WindowManager.LayoutParams.WRAP_CONTENT);
+        updateCheckProgress=dialog;
+    }
+    void closeUpdateCheckProgress(){if(updateCheckProgress!=null){updateCheckProgress.dismiss();updateCheckProgress=null;}}
     private boolean updateProgressHidden;
     boolean isUpdateForeground(){return resumed;}
     private Dialog updateProgressDialog;
@@ -455,5 +469,5 @@ public class MainActivity extends Activity {
         dialog.setContentView(panel);
     }
     @Override protected void onSaveInstanceState(Bundle out){out.putBoolean("showSettings",settingsDialog!=null && settingsDialog.isShowing());if(stripStart!=null)out.putString("stripStart",stripStart.toString());out.putString("teacherId",selectedTeacherId);out.putString("teacherQuery",teacherQuery);out.putInt("teacherScrollY",teacherScroll!=null && teacherScroll.getParent()!=null?teacherScroll.getScrollY():teacherScrollY);out.putString("teacherDay",teacherDay.toString());if(teacherStrip!=null)out.putString("teacherStrip",teacherStrip.toString());out.putString("selectedDay",selectedDay.toString());out.putInt("selectedTab",selectedTab);super.onSaveInstanceState(out);}
-    @Override public void onDestroy(){clearSyncNotice();io.shutdownNow();teacherIo.shutdownNow();if(settingsDialog!=null)settingsDialog.dismiss();super.onDestroy();}
+    @Override public void onDestroy(){closeUpdateCheckProgress();clearSyncNotice();io.shutdownNow();teacherIo.shutdownNow();if(settingsDialog!=null)settingsDialog.dismiss();super.onDestroy();}
 }

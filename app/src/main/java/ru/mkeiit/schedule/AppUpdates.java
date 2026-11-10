@@ -21,7 +21,8 @@ public final class AppUpdates {
     private static final String REPO="expat2159/mkeiit-3sa2";
     private static final String API="https://api.github.com/repos/"+REPO+"/releases/latest";
     private static final long INTERVAL=10L*60*1000;
-    private static boolean checking;
+    private static boolean checking,manualChecking;
+    private static java.lang.ref.WeakReference<MainActivity> manualActivity;
     private static final Handler handler=new Handler(Looper.getMainLooper());
     private static Runnable monitor;
     private static Activity monitored;
@@ -40,7 +41,10 @@ public final class AppUpdates {
         return null;
     }
     public static void check(Activity activity,boolean manual){
-        synchronized(AppUpdates.class){if(checking)return;checking=true;}
+        synchronized(AppUpdates.class){
+            if(checking){if(manual && activity instanceof MainActivity){manualChecking=true;manualActivity=new java.lang.ref.WeakReference<>((MainActivity)activity);((MainActivity)activity).showUpdateCheckProgress();}return;}
+            checking=true;
+        }
         Context app=activity.getApplicationContext();
         long now=System.currentTimeMillis();long last=app.getSharedPreferences("updates",0).getLong("last_check",0);
         if(now<app.getSharedPreferences("updates",0).getLong("rate_limit_until",0)){
@@ -49,6 +53,10 @@ public final class AppUpdates {
             return;
         }
         if(!manual && now-last<INTERVAL){synchronized(AppUpdates.class){checking=false;}return;}
+        if(manual && activity instanceof MainActivity){
+            synchronized(AppUpdates.class){manualChecking=true;manualActivity=new java.lang.ref.WeakReference<>((MainActivity)activity);}
+            ((MainActivity)activity).showUpdateCheckProgress();
+        }
         new Thread(()->{
             String version=null,url=null,error=null;boolean current=false;
             try{
@@ -75,12 +83,20 @@ public final class AppUpdates {
             catch(Exception e){error="Не удалось проверить обновление. Проверьте интернет и попробуйте снова.";}
             final String newVersion=version,download=url,problem=error;final boolean upToDate=current;
             activity.runOnUiThread(()->{
-                synchronized(AppUpdates.class){checking=false;}
-                if(activity.isFinishing()||activity.isDestroyed() || !(activity instanceof MainActivity) || !((MainActivity)activity).isUpdateForeground())return;
+                MainActivity target;boolean showResult;
+                synchronized(AppUpdates.class){
+                    checking=false;showResult=manualChecking;
+                    target=manualActivity==null?null:manualActivity.get();manualChecking=false;manualActivity=null;
+                }
+                if(target==null && activity instanceof MainActivity)target=(MainActivity)activity;
+                if(target==null)return;
+                target.closeUpdateCheckProgress();
+                if(target.isFinishing()||target.isDestroyed() || !target.isUpdateForeground())return;
+                final MainActivity screen=target;
                 if(newVersion!=null){
                     app.getSharedPreferences("updates",0).edit().putLong("last_check",System.currentTimeMillis()).apply();
-                    ((MainActivity)activity).showUpdateDialog("Доступно обновление "+newVersion,"Скачать новую версию приложения?","Позже","Скачать",()->download(activity,download,newVersion));
-                }else if(manual && (problem!=null || upToDate))show(activity,"Обновление приложения",problem!=null?problem:"Установлена последняя версия.");
+                    screen.showUpdateDialog("Доступно обновление "+newVersion,"Скачать новую версию приложения?","Позже","Скачать",()->download(screen,download,newVersion));
+                }else if(showResult && (problem!=null || upToDate))show(screen,"Обновление приложения",problem!=null?problem:"Установлена последняя версия.");
             });
         },"app-update-check").start();
     }
@@ -112,7 +128,10 @@ public final class AppUpdates {
             track(activity,false);
         }catch(Exception e){show(activity,"Обновление приложения","Не удалось начать загрузку. Попробуйте снова.");}
     }
-    public static void resume(Activity activity){track(activity,false);}
+    public static void resume(Activity activity){
+        synchronized(AppUpdates.class){if(checking && manualChecking && activity instanceof MainActivity){manualActivity=new java.lang.ref.WeakReference<>((MainActivity)activity);((MainActivity)activity).showUpdateCheckProgress();}}
+        track(activity,false);
+    }
     public static void pause(Activity activity){
         if(monitored!=activity)return;
         if(monitor!=null)handler.removeCallbacks(monitor);monitor=null;monitored=null;
