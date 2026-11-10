@@ -85,7 +85,7 @@ public class MainActivity extends Activity {
         groups.setOnCheckedChangeListener((g,id)->{subgroup=id-100;getPreferences(0).edit().putInt("subgroup",subgroup).apply();render();});
         content=column();
         root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
-        render();DailyJob.schedule(this);
+        render();DailyJob.schedule(this);AppUpdates.check(this,false);
         if(state!=null && state.getBoolean("showSettings",false))root.post(()->{if(!isDestroyed())settings();});
         io.submit(()->{Repository.Snapshot cached=Repository.read(this);Teachers.State teachers=TeacherRepository.read(this);runOnUiThread(()->{if(isDestroyed())return;data=cached;acceptTeachers(teachers);render();if(needsUpdate())update();else if(selectedTeacherId!=null)loadTeacher(selectedTeacherId);});});
     }
@@ -360,7 +360,7 @@ public class MainActivity extends Activity {
         if(!primary)normal.setStroke(dp(1),colors.dark?0xFF34445F:0xFFDDE5F3);
         android.graphics.drawable.StateListDrawable states=new android.graphics.drawable.StateListDrawable();states.addState(new int[]{-android.R.attr.state_enabled},background(colors.surface,12));states.addState(new int[]{},normal);
         android.graphics.drawable.RippleDrawable ripple=new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf((foreground & 0x00FFFFFF) | 0x33000000),states,background(0xFFFFFFFF,12));button.setBackground(ripple);
-        AppIcon drawable=new AppIcon(icon,foreground);drawable.setBounds(0,0,dp(18),dp(18));drawable.setTintList(textColors);button.setCompoundDrawables(title.equals("Отмена") || title.equals("Выбрать")?null:drawable,null,null,null);button.setCompoundDrawablePadding(iconOnly?0:dp(5));
+        AppIcon drawable=new AppIcon(icon,foreground);drawable.setBounds(0,0,dp(18),dp(18));drawable.setTintList(textColors);button.setCompoundDrawables(title.equals("Отмена") || title.equals("Выбрать") || title.equals("Проверить обновления")?null:drawable,null,null,null);button.setCompoundDrawablePadding(iconOnly?0:dp(5));
         String description=title.equals("⋮")?"Настройки":title.equals("‹")?"Предыдущая неделя":title.equals("›")?"Следующая неделя":label;button.setContentDescription(description);button.setTooltipText(description);
         button.setOnClickListener(v->callback.run());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(iconOnly?dp(44):-2,dp(44));lp.setMargins(dp(2),dp(2),dp(2),dp(2));if(parent.getOrientation()==LinearLayout.VERTICAL)lp.gravity=Gravity.CENTER_HORIZONTAL;parent.addView(button,lp);return button;
     }
@@ -384,6 +384,7 @@ public class MainActivity extends Activity {
             String mode=modes[id-300];if(mode.equals(AppAppearance.mode(this)))return;
             AppAppearance.setMode(this,mode);reopenSettings=true;dialog.dismiss();recreate();
         });
+        action(panel,"Проверить обновления",()->{dialog.dismiss();AppUpdates.check(this,true);});
         panel.addView(new View(this),new LinearLayout.LayoutParams(-1,0,1));
         TextView author=text("разработчик - expat",14,muted,false);author.setGravity(Gravity.CENTER);panel.addView(author,new LinearLayout.LayoutParams(-1,dp(32)));
         TextView contact=text("Telegram разработчика",15,blue,true);contact.setGravity(Gravity.CENTER);contact.setFocusable(true);contact.setOnClickListener(v->open(DEVELOPER_TELEGRAM));contact.setContentDescription("Telegram разработчика: @expat2159");panel.addView(contact,new LinearLayout.LayoutParams(-1,dp(48)));
