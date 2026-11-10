@@ -80,7 +80,7 @@ public final class AppUpdates {
                 if(newVersion!=null){
                     app.getSharedPreferences("updates",0).edit().putLong("last_check",System.currentTimeMillis()).apply();
                     ((MainActivity)activity).showUpdateDialog("Доступно обновление "+newVersion,"Скачать новую версию приложения?","Позже","Скачать",()->download(activity,download,newVersion));
-                }else if(manual && (problem!=null || upToDate))show(activity,"Обновление приложения",problem!=null?problem:"Установлена последняя опубликованная версия.");
+                }else if(manual && (problem!=null || upToDate))show(activity,"Обновление приложения",problem!=null?problem:"Установлена последняя версия.");
             });
         },"app-update-check").start();
     }
