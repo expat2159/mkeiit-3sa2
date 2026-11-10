@@ -426,6 +426,9 @@ public class MainActivity extends Activity {
         });
         action(panel,"Проверить обновления",()->{dialog.dismiss();AppUpdates.check(this,true);});
         panel.addView(new View(this),new LinearLayout.LayoutParams(-1,0,1));
+        String versionName;
+        try{versionName=getPackageManager().getPackageInfo(getPackageName(),0).versionName;}catch(android.content.pm.PackageManager.NameNotFoundException e){versionName="—";}
+        TextView version=text("Версия "+versionName,13,muted,false);version.setGravity(Gravity.CENTER);panel.addView(version,new LinearLayout.LayoutParams(-1,dp(28)));
         TextView author=text("разработчик - expat",14,muted,false);author.setGravity(Gravity.CENTER);panel.addView(author,new LinearLayout.LayoutParams(-1,dp(32)));
         TextView contact=text("Telegram разработчика",15,blue,true);contact.setGravity(Gravity.CENTER);contact.setFocusable(true);contact.setOnClickListener(v->open(DEVELOPER_TELEGRAM));contact.setContentDescription("Telegram разработчика: @expat2159");panel.addView(contact,new LinearLayout.LayoutParams(-1,dp(48)));
         dialog.setContentView(panel);dialog.setOnDismissListener(d->{if(settingsDialog==dialog)settingsDialog=null;});dialog.show();
