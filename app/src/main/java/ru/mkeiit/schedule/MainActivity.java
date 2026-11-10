@@ -46,7 +46,6 @@ public class MainActivity extends Activity {
     private int ink,muted,blue;
     private AppColors colors;
     private Dialog settingsDialog;
-    private boolean reopenSettings;
     private static final String DEVELOPER_TELEGRAM="https://t.me/expat2159";
     private static final Locale RU=new Locale("ru");
     private int dp(float n){return (int)(getResources().getDisplayMetrics().density*n+.5f);}
@@ -55,14 +54,26 @@ public class MainActivity extends Activity {
         colors=AppAppearance.colors(this);
         setTheme(getResources().getIdentifier(colors.dark?"AppThemeDark":"AppTheme","style",getPackageName()));
         super.onCreate(state);
+        applyPalette();
+        subgroup=getPreferences(0).getInt("subgroup",0);
+        if(state!=null){selectedDay=LocalDate.parse(state.getString("selectedDay",today().toString()));selectedTab=state.getInt("selectedTab",0);if(state.containsKey("stripStart"))stripStart=LocalDate.parse(state.getString("stripStart"));}
+        if(state!=null){selectedTeacherId=state.getString("teacherId");teacherQuery=state.getString("teacherQuery","");teacherScrollY=state.getInt("teacherScrollY",0);teacherDay=LocalDate.parse(state.getString("teacherDay",today().toString()));if(state.containsKey("teacherStrip"))teacherStrip=LocalDate.parse(state.getString("teacherStrip"));}
+        buildContent();DailyJob.schedule(this);
+        if(state!=null && state.getBoolean("showSettings",false))root.post(()->{if(!isDestroyed())settings();});
+        io.submit(()->{Repository.Snapshot cached=Repository.read(this);Teachers.State teachers=TeacherRepository.read(this);runOnUiThread(()->{if(isDestroyed())return;data=cached;acceptTeachers(teachers);render();if(needsUpdate())update();else if(selectedTeacherId!=null)loadTeacher(selectedTeacherId);});});
+    }
+    private void tintRadio(RadioButton button){
+        button.setButtonTintList(new android.content.res.ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{blue,muted}));
+    }
+    private void applyPalette(){
         ink=colors.text;muted=colors.muted;blue=colors.accent;
         getWindow().setStatusBarColor(colors.background);getWindow().setNavigationBarColor(colors.background);
         int barFlags=getWindow().getDecorView().getSystemUiVisibility();
         int lightBars=View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
         getWindow().getDecorView().setSystemUiVisibility(colors.dark?barFlags & ~lightBars:barFlags | lightBars);
-        subgroup=getPreferences(0).getInt("subgroup",0);
-        if(state!=null){selectedDay=LocalDate.parse(state.getString("selectedDay",today().toString()));selectedTab=state.getInt("selectedTab",0);if(state.containsKey("stripStart"))stripStart=LocalDate.parse(state.getString("stripStart"));}
-        if(state!=null){selectedTeacherId=state.getString("teacherId");teacherQuery=state.getString("teacherQuery","");teacherScrollY=state.getInt("teacherScrollY",0);teacherDay=LocalDate.parse(state.getString("teacherDay",today().toString()));if(state.containsKey("teacherStrip"))teacherStrip=LocalDate.parse(state.getString("teacherStrip"));}
+    }
+    private void buildContent(){
+        if(teacherScroll!=null && teacherScroll.getParent()!=null)teacherScrollY=teacherScroll.getScrollY();
         root=column();root.setPadding(dp(12),dp(8),dp(12),dp(4));root.setBackgroundColor(colors.background);
         root.setOnApplyWindowInsetsListener((v,insets)->{
             root.setPadding(dp(12),dp(8)+insets.getSystemWindowInsetTop(),dp(12),dp(4)+insets.getSystemWindowInsetBottom());
@@ -71,23 +82,21 @@ public class MainActivity extends Activity {
         setContentView(root);
         LinearLayout header=row();
         TextView title=text("3СА2 · МКЭиИТ",19,ink,true);header.addView(title,new LinearLayout.LayoutParams(0,dp(44),1));
-        refresh=action(header,"Обновить",()->update());
+        refresh=action(header,"Обновить",()->update());refresh.setEnabled(!busy);
         action(header,"⋮",()->settings()).setContentDescription("Настройки");root.addView(header);
         status=text("Загрузка…",11,muted,false);status.setMaxLines(2);root.addView(status);
         tabs=row();root.addView(tabs);
         groups=new RadioGroup(this);groups.setOrientation(0);
         String[] names={"Все","Подгр. 1","Подгр. 2"};
         for(int i=0;i<3;i++){
-            RadioButton b=new RadioButton(this);b.setId(100+i);b.setText(names[i]);b.setTextSize(13);b.setPadding(0,0,0,0);
+            RadioButton b=new RadioButton(this);b.setId(100+i);b.setText(names[i]);b.setTextSize(13);b.setTextColor(ink);tintRadio(b);b.setPadding(0,0,0,0);
             groups.addView(b,new RadioGroup.LayoutParams(0,dp(40),1));
         }
         groups.check(100+subgroup);root.addView(groups);
         groups.setOnCheckedChangeListener((g,id)->{subgroup=id-100;getPreferences(0).edit().putInt("subgroup",subgroup).apply();render();});
         content=column();
         root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
-        render();DailyJob.schedule(this);
-        if(state!=null && state.getBoolean("showSettings",false))root.post(()->{if(!isDestroyed())settings();});
-        io.submit(()->{Repository.Snapshot cached=Repository.read(this);Teachers.State teachers=TeacherRepository.read(this);runOnUiThread(()->{if(isDestroyed())return;data=cached;acceptTeachers(teachers);render();if(needsUpdate())update();else if(selectedTeacherId!=null)loadTeacher(selectedTeacherId);});});
+        render();if(busy)status.setText("Проверяем изменения…");
     }
     private boolean needsUpdate(){return System.currentTimeMillis()-data.checked>=Repository.DAY || data.bells==null || teacherData.entries.isEmpty();}
     @Override protected void onResume(){
@@ -409,6 +418,13 @@ public class MainActivity extends Activity {
         if(settingsDialog!=null && settingsDialog.isShowing())return;
         final Dialog dialog=new Dialog(this);settingsDialog=dialog;
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        renderSettings(dialog);
+        dialog.setOnDismissListener(d->{if(settingsDialog==dialog)settingsDialog=null;});dialog.show();
+        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        android.util.DisplayMetrics metrics=getResources().getDisplayMetrics();
+        dialog.getWindow().setLayout(Math.min(metrics.widthPixels-dp(24),dp(400)),Math.min(metrics.heightPixels-dp(80),dp(480)));
+    }
+    private void renderSettings(Dialog dialog){
         LinearLayout panel=column();panel.setPadding(dp(20),dp(14),dp(20),dp(14));panel.setBackground(background(colors.background,20));
         LinearLayout heading=row();heading.addView(text("Настройки",21,ink,true),new LinearLayout.LayoutParams(0,dp(48),1));action(heading,"Закрыть",()->dialog.dismiss());panel.addView(heading);
         panel.addView(text("Тема",16,ink,true));
@@ -416,13 +432,17 @@ public class MainActivity extends Activity {
         String[] labels={"Авто","Тёмная","Светлая"},modes={"auto","dark","light"};
         String chosen=AppAppearance.mode(this);int checked=0;
         for(int i=0;i<3;i++){
-            RadioButton option=new RadioButton(this);option.setId(300+i);option.setText(labels[i]);option.setTextSize(16);option.setTextColor(ink);choices.addView(option,new RadioGroup.LayoutParams(-1,dp(48)));
+            RadioButton option=new RadioButton(this);option.setId(300+i);option.setText(labels[i]);option.setTextSize(16);option.setTextColor(ink);tintRadio(option);choices.addView(option,new RadioGroup.LayoutParams(-1,dp(48)));
             if(modes[i].equals(chosen))checked=i;
         }
         choices.check(300+checked);panel.addView(choices);
         choices.setOnCheckedChangeListener((group,id)->{
             String mode=modes[id-300];if(mode.equals(AppAppearance.mode(this)))return;
-            AppAppearance.setMode(this,mode);reopenSettings=true;dialog.dismiss();recreate();
+            AppAppearance.setMode(this,mode);
+            AppColors next=AppAppearance.colors(this);
+            if(next.dark==colors.dark)return;
+            colors=next;setTheme(getResources().getIdentifier(colors.dark?"AppThemeDark":"AppTheme","style",getPackageName()));
+            applyPalette();buildContent();renderSettings(dialog);
         });
         action(panel,"Проверить обновления",()->{dialog.dismiss();AppUpdates.check(this,true);});
         panel.addView(new View(this),new LinearLayout.LayoutParams(-1,0,1));
@@ -431,11 +451,8 @@ public class MainActivity extends Activity {
         TextView version=text("Версия "+versionName,13,muted,false);version.setGravity(Gravity.CENTER);panel.addView(version,new LinearLayout.LayoutParams(-1,dp(28)));
         TextView author=text("разработчик - expat",14,muted,false);author.setGravity(Gravity.CENTER);panel.addView(author,new LinearLayout.LayoutParams(-1,dp(32)));
         TextView contact=text("Telegram разработчика",15,blue,true);contact.setGravity(Gravity.CENTER);contact.setFocusable(true);contact.setOnClickListener(v->open(DEVELOPER_TELEGRAM));contact.setContentDescription("Telegram разработчика: @expat2159");panel.addView(contact,new LinearLayout.LayoutParams(-1,dp(48)));
-        dialog.setContentView(panel);dialog.setOnDismissListener(d->{if(settingsDialog==dialog)settingsDialog=null;});dialog.show();
-        android.util.DisplayMetrics metrics=getResources().getDisplayMetrics();
-        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
-        dialog.getWindow().setLayout(Math.min(metrics.widthPixels-dp(24),dp(400)),Math.min(metrics.heightPixels-dp(80),dp(480)));
+        dialog.setContentView(panel);
     }
-    @Override protected void onSaveInstanceState(Bundle out){out.putBoolean("showSettings",reopenSettings || (settingsDialog!=null && settingsDialog.isShowing()));if(stripStart!=null)out.putString("stripStart",stripStart.toString());out.putString("teacherId",selectedTeacherId);out.putString("teacherQuery",teacherQuery);out.putInt("teacherScrollY",teacherScroll!=null && teacherScroll.getParent()!=null?teacherScroll.getScrollY():teacherScrollY);out.putString("teacherDay",teacherDay.toString());if(teacherStrip!=null)out.putString("teacherStrip",teacherStrip.toString());out.putString("selectedDay",selectedDay.toString());out.putInt("selectedTab",selectedTab);super.onSaveInstanceState(out);}
+    @Override protected void onSaveInstanceState(Bundle out){out.putBoolean("showSettings",settingsDialog!=null && settingsDialog.isShowing());if(stripStart!=null)out.putString("stripStart",stripStart.toString());out.putString("teacherId",selectedTeacherId);out.putString("teacherQuery",teacherQuery);out.putInt("teacherScrollY",teacherScroll!=null && teacherScroll.getParent()!=null?teacherScroll.getScrollY():teacherScrollY);out.putString("teacherDay",teacherDay.toString());if(teacherStrip!=null)out.putString("teacherStrip",teacherStrip.toString());out.putString("selectedDay",selectedDay.toString());out.putInt("selectedTab",selectedTab);super.onSaveInstanceState(out);}
     @Override public void onDestroy(){clearSyncNotice();io.shutdownNow();teacherIo.shutdownNow();if(settingsDialog!=null)settingsDialog.dismiss();super.onDestroy();}
 }
