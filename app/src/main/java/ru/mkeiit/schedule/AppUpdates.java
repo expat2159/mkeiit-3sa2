@@ -1,7 +1,6 @@
 package ru.mkeiit.schedule;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.app.DownloadManager;
 import android.content.Context;
 import android.net.Uri;
@@ -58,9 +57,12 @@ public final class AppUpdates {
                 if(activity.isFinishing()||activity.isDestroyed())return;
                 if(newVersion!=null){
                     download(activity,download,newVersion);
-                }else if(manual && (problem!=null || upToDate))new AlertDialog.Builder(activity).setTitle("Обновление приложения").setMessage(problem!=null?problem:"Установлена последняя опубликованная версия.").setPositiveButton("Закрыть",null).show();
+                }else if(manual && (problem!=null || upToDate))show(activity,"Обновление приложения",problem!=null?problem:"Установлена последняя опубликованная версия.");
             });
         },"app-update-check").start();
+    }
+    private static void show(Activity activity,String title,String message){
+        if(activity instanceof MainActivity)((MainActivity)activity).showUpdateDialog(title,message);
     }
     private static void download(Activity activity,String url,String version){
         try{
@@ -76,13 +78,13 @@ public final class AppUpdates {
                     if(cursor!=null && cursor.moveToFirst()){
                         int state=cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
                         if(state!=DownloadManager.STATUS_FAILED){
-                            new AlertDialog.Builder(activity).setTitle("Обновление "+version).setMessage("Загрузка уже начата. Откройте её в уведомлениях и подтвердите установку.").setPositiveButton("Понятно",null).show();return;
+                            show(activity,"Обновление "+version,"Загрузка уже начата. Откройте её в уведомлениях и подтвердите установку.");return;
                         }
                     }
                 }
             }
             long id=manager.enqueue(request);prefs.edit().putLong("download_id",id).putString("download_version",version).apply();
-            new AlertDialog.Builder(activity).setTitle("Обновление скачивается").setMessage("Откройте уведомление о загрузке и подтвердите установку. Если Android запросит разрешение на установку из этого источника, разрешите её.").setPositiveButton("Понятно",null).show();
-        }catch(Exception e){new AlertDialog.Builder(activity).setMessage("Не удалось начать загрузку. Попробуйте снова.").setPositiveButton("Закрыть",null).show();}
+            show(activity,"Обновление скачивается","Откройте уведомление о загрузке и подтвердите установку. Если Android запросит разрешение на установку из этого источника, разрешите её.");
+        }catch(Exception e){show(activity,"Обновление приложения","Не удалось начать загрузку. Попробуйте снова.");}
     }
 }

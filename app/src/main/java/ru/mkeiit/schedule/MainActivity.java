@@ -365,6 +365,18 @@ public class MainActivity extends Activity {
         button.setOnClickListener(v->callback.run());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(iconOnly?dp(44):-2,dp(44));lp.setMargins(dp(2),dp(2),dp(2),dp(2));if(parent.getOrientation()==LinearLayout.VERTICAL)lp.gravity=Gravity.CENTER_HORIZONTAL;parent.addView(button,lp);return button;
     }
     private void open(String url){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(ActivityNotFoundException e){showSyncNotice("Браузер не установлен");}}
+    void showUpdateDialog(String title,String message){
+        if(isFinishing() || isDestroyed())return;
+        Dialog dialog=new Dialog(this);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+        LinearLayout panel=column();panel.setPadding(dp(20),dp(18),dp(20),dp(16));panel.setBackground(background(colors.background,20));
+        TextView heading=text(title,20,ink,true);heading.setPadding(0,0,0,dp(10));panel.addView(heading);
+        TextView body=text(message,15,muted,false);body.setGravity(Gravity.START);body.setLineSpacing(dp(3),1f);panel.addView(body);
+        LinearLayout footer=row();footer.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);LinearLayout.LayoutParams spacing=new LinearLayout.LayoutParams(-1,-2);spacing.topMargin=dp(14);panel.addView(footer,spacing);
+        action(footer,"Закрыть",()->dialog.dismiss());
+        dialog.setContentView(panel);dialog.show();
+        dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
+        dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-dp(24),dp(400)),WindowManager.LayoutParams.WRAP_CONTENT);
+    }
     private void settings(){
         if(settingsDialog!=null && settingsDialog.isShowing())return;
         final Dialog dialog=new Dialog(this);settingsDialog=dialog;
