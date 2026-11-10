@@ -92,8 +92,8 @@ public final class AppUpdates {
         try{
             DownloadManager manager=(DownloadManager)activity.getSystemService(Context.DOWNLOAD_SERVICE);
             DownloadManager.Request request=new DownloadManager.Request(Uri.parse(url));
-            request.setTitle("Расписание 3СА2 "+version).setDescription("Нажмите после загрузки, чтобы установить обновление")
-                .setMimeType("application/vnd.android.package-archive").setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            request.setTitle("Расписание 3СА2 "+version).setDescription("Скачивание обновления приложения")
+                .setMimeType("application/vnd.android.package-archive").setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE)
                 .setDestinationInExternalFilesDir(activity,Environment.DIRECTORY_DOWNLOADS,"3SA2-raspisanie-"+version+".apk");
             android.content.SharedPreferences prefs=activity.getSharedPreferences("updates",0);
             long previous=prefs.getLong("download_id",-1);
@@ -168,7 +168,7 @@ public final class AppUpdates {
             if(uri==null)throw new IOException("APK недоступен");
             Intent intent=new Intent(Intent.ACTION_VIEW).setDataAndType(uri,"application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             activity.getSharedPreferences("updates",0).edit().putLong("offered_id",id).putBoolean("waiting_permission",false).apply();activity.startActivity(intent);
-        }catch(Exception e){((MainActivity)activity).showUpdateDialog("Не удалось открыть установщик","Откройте загруженное обновление в уведомлениях или повторите проверку.","Повторить",()->check(activity,true));}
+        }catch(Exception e){((MainActivity)activity).showUpdateDialog("Не удалось открыть установщик","Повторите проверку обновлений и выберите установку.","Повторить",()->check(activity,true));}
     }
 
 }
