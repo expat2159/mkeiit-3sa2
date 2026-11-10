@@ -64,8 +64,8 @@ public final class AppUpdates {
                 synchronized(AppUpdates.class){checking=false;}
                 if(activity.isFinishing()||activity.isDestroyed() || !(activity instanceof MainActivity) || !((MainActivity)activity).isUpdateForeground())return;
                 if(newVersion!=null){
-                    download(activity,download,newVersion);
                     app.getSharedPreferences("updates",0).edit().putLong("last_check",System.currentTimeMillis()).apply();
+                    ((MainActivity)activity).showUpdateDialog("Доступно обновление "+newVersion,"Скачать новую версию приложения?","Позже","Скачать",()->download(activity,download,newVersion));
                 }else if(manual && (problem!=null || upToDate))show(activity,"Обновление приложения",problem!=null?problem:"Установлена последняя опубликованная версия.");
             });
         },"app-update-check").start();

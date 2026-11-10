@@ -358,7 +358,7 @@ public class MainActivity extends Activity {
     private TextView text(String value,int size,int color,boolean bold){TextView t=new TextView(this);t.setText(value);t.setTextSize(size);t.setTextColor(color);t.setGravity(Gravity.CENTER_VERTICAL);t.setPadding(0,dp(2),0,dp(2));if(bold)t.setTypeface(null,Typeface.BOLD);return t;}
     private GradientDrawable background(int color,int radius){GradientDrawable bg=new GradientDrawable();bg.setColor(color);bg.setCornerRadius(dp(radius));return bg;}
     private Button action(LinearLayout parent,String title,Runnable callback){
-        boolean primary=title.equals("Обновить") || title.equals("Выбрать"),iconOnly=title.equals("⋮") || title.equals("‹") || title.equals("›");
+        boolean primary=title.equals("Обновить") || title.equals("Выбрать") || title.equals("Скачать"),iconOnly=title.equals("⋮") || title.equals("‹") || title.equals("›");
         int icon=title.equals("Обновить")?AppIcon.REFRESH:title.equals("⋮")?AppIcon.SETTINGS:title.equals("Закрыть")?AppIcon.CLOSE:title.equals("›")?AppIcon.RIGHT:title.equals("Сегодня")?AppIcon.CALENDAR:AppIcon.LEFT;
         String label=title.equals("‹ К списку")?"К списку":title;
         int foreground=primary?colors.onAccent:blue;
@@ -370,20 +370,21 @@ public class MainActivity extends Activity {
         if(!primary)normal.setStroke(dp(1),colors.dark?0xFF34445F:0xFFDDE5F3);
         android.graphics.drawable.StateListDrawable states=new android.graphics.drawable.StateListDrawable();states.addState(new int[]{-android.R.attr.state_enabled},background(colors.surface,12));states.addState(new int[]{},normal);
         android.graphics.drawable.RippleDrawable ripple=new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf((foreground & 0x00FFFFFF) | 0x33000000),states,background(0xFFFFFFFF,12));button.setBackground(ripple);
-        AppIcon drawable=new AppIcon(icon,foreground);drawable.setBounds(0,0,dp(18),dp(18));drawable.setTintList(textColors);button.setCompoundDrawables(title.equals("Отмена") || title.equals("Выбрать") || title.equals("Проверить обновления") || title.equals("Повторить") || title.equals("Настройки") || title.equals("Установить")?null:drawable,null,null,null);button.setCompoundDrawablePadding(iconOnly?0:dp(5));
+        AppIcon drawable=new AppIcon(icon,foreground);drawable.setBounds(0,0,dp(18),dp(18));drawable.setTintList(textColors);button.setCompoundDrawables(title.equals("Отмена") || title.equals("Выбрать") || title.equals("Проверить обновления") || title.equals("Повторить") || title.equals("Настройки") || title.equals("Установить") || title.equals("Скачать") || title.equals("Позже")?null:drawable,null,null,null);button.setCompoundDrawablePadding(iconOnly?0:dp(5));
         String description=title.equals("⋮")?"Настройки":title.equals("‹")?"Предыдущая неделя":title.equals("›")?"Следующая неделя":label;button.setContentDescription(description);button.setTooltipText(description);
         button.setOnClickListener(v->callback.run());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(iconOnly?dp(44):-2,dp(44));lp.setMargins(dp(2),dp(2),dp(2),dp(2));if(parent.getOrientation()==LinearLayout.VERTICAL)lp.gravity=Gravity.CENTER_HORIZONTAL;parent.addView(button,lp);return button;
     }
     private void open(String url){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(ActivityNotFoundException e){showSyncNotice("Браузер не установлен");}}
     void showUpdateDialog(String title,String message){showUpdateDialog(title,message,null,null);}
-    void showUpdateDialog(String title,String message,String actionLabel,Runnable callback){
+    void showUpdateDialog(String title,String message,String actionLabel,Runnable callback){showUpdateDialog(title,message,"Закрыть",actionLabel,callback);}
+    void showUpdateDialog(String title,String message,String cancelLabel,String actionLabel,Runnable callback){
         if(isFinishing() || isDestroyed())return;
         Dialog dialog=new Dialog(this);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         LinearLayout panel=column();panel.setPadding(dp(20),dp(18),dp(20),dp(16));panel.setBackground(background(colors.background,20));
         TextView heading=text(title,20,ink,true);heading.setPadding(0,0,0,dp(10));panel.addView(heading);
         TextView body=text(message,15,muted,false);body.setGravity(Gravity.START);body.setLineSpacing(dp(3),1f);panel.addView(body);
         LinearLayout footer=row();footer.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);LinearLayout.LayoutParams spacing=new LinearLayout.LayoutParams(-1,-2);spacing.topMargin=dp(14);panel.addView(footer,spacing);
-        action(footer,"Закрыть",()->dialog.dismiss());
+        action(footer,cancelLabel,()->dialog.dismiss());
         if(callback!=null)action(footer,actionLabel,()->{dialog.dismiss();callback.run();});
         dialog.setContentView(panel);dialog.show();
         dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
