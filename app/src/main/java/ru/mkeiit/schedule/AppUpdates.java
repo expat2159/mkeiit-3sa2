@@ -20,7 +20,7 @@ import org.jsoup.Jsoup;
 public final class AppUpdates {
     private static final String REPO="expat2159/mkeiit-3sa2";
     private static final String API="https://api.github.com/repos/"+REPO+"/releases/latest";
-    private static final long INTERVAL=24L*60*60*1000;
+    private static final long INTERVAL=10L*60*1000;
     private static boolean checking;
     private static final Handler handler=new Handler(Looper.getMainLooper());
     private static Runnable monitor;
@@ -43,11 +43,24 @@ public final class AppUpdates {
         synchronized(AppUpdates.class){if(checking)return;checking=true;}
         Context app=activity.getApplicationContext();
         long now=System.currentTimeMillis();long last=app.getSharedPreferences("updates",0).getLong("last_check",0);
+        if(now<app.getSharedPreferences("updates",0).getLong("rate_limit_until",0)){
+            synchronized(AppUpdates.class){checking=false;}
+            if(manual)show(activity,"Проверка обновлений","GitHub временно ограничил количество запросов. Попробуйте позже.");
+            return;
+        }
         if(!manual && now-last<INTERVAL){synchronized(AppUpdates.class){checking=false;}return;}
         new Thread(()->{
             String version=null,url=null,error=null;boolean current=false;
             try{
                 Connection.Response response=Jsoup.connect(API).header("Accept","application/vnd.github+json").userAgent("MKEIIT-3SA2-Android").ignoreContentType(true).ignoreHttpErrors(true).timeout(15000).maxBodySize(512*1024).execute();
+                boolean limited=response.statusCode()==429 || (response.statusCode()==403 && ("0".equals(response.header("X-RateLimit-Remaining")) || response.header("Retry-After")!=null));
+                if(limited){
+                    long until=System.currentTimeMillis()+60000;
+                    try{String after=response.header("Retry-After");if(after!=null)until=Math.max(until,System.currentTimeMillis()+Math.min(86400,Math.max(0,Long.parseLong(after)))*1000L);}catch(NumberFormatException ignored){}
+                    try{String reset=response.header("X-RateLimit-Reset");if("0".equals(response.header("X-RateLimit-Remaining")) && reset!=null)until=Math.max(until,Long.parseLong(reset)*1000L);}catch(NumberFormatException ignored){}
+                    app.getSharedPreferences("updates",0).edit().putLong("rate_limit_until",until).apply();
+                    throw new RateLimited();
+                }
                 if(response.statusCode()==404){current=true;}
                 else if(response.statusCode()!=200)throw new IOException("HTTP "+response.statusCode());
                 else{
@@ -58,7 +71,8 @@ public final class AppUpdates {
                     else current=true;
                 }
                 if(version==null)app.getSharedPreferences("updates",0).edit().putLong("last_check",System.currentTimeMillis()).apply();
-            }catch(Exception e){error="Не удалось проверить обновление. Проверьте интернет и попробуйте снова.";}
+            }catch(RateLimited e){error="GitHub временно ограничил количество запросов. Попробуйте позже.";}
+            catch(Exception e){error="Не удалось проверить обновление. Проверьте интернет и попробуйте снова.";}
             final String newVersion=version,download=url,problem=error;final boolean upToDate=current;
             activity.runOnUiThread(()->{
                 synchronized(AppUpdates.class){checking=false;}
@@ -70,6 +84,7 @@ public final class AppUpdates {
             });
         },"app-update-check").start();
     }
+    private static final class RateLimited extends IOException {private static final long serialVersionUID=1L;}
     private static void show(Activity activity,String title,String message){
         if(activity instanceof MainActivity)((MainActivity)activity).showUpdateDialog(title,message);
     }
