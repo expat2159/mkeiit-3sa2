@@ -3,6 +3,11 @@ package ru.mkeiit.schedule;
 import android.app.Activity;
 import android.app.DownloadManager;
 import android.content.Context;
+import android.content.Intent;
+import android.content.SharedPreferences;
+import android.provider.Settings;
+import android.os.Handler;
+import android.os.Looper;
 import android.net.Uri;
 import android.os.Environment;
 import java.io.IOException;
@@ -17,6 +22,9 @@ public final class AppUpdates {
     private static final String API="https://api.github.com/repos/"+REPO+"/releases/latest";
     private static final long INTERVAL=24L*60*60*1000;
     private static boolean checking;
+    private static final Handler handler=new Handler(Looper.getMainLooper());
+    private static Runnable monitor;
+    private static Activity monitored;
     private AppUpdates(){}
     static int compare(String a,String b){
         if(!a.matches("v?\\d+(\\.\\d+){0,3}") || !b.matches("v?\\d+(\\.\\d+){0,3}"))return 0;
@@ -49,14 +57,15 @@ public final class AppUpdates {
                     if(compare(tag,installed)>0){url=assetUrl(tag,release.getJSONArray("assets"));if(url==null)throw new IOException("APK не найден");version=tag;}
                     else current=true;
                 }
-                app.getSharedPreferences("updates",0).edit().putLong("last_check",System.currentTimeMillis()).apply();
+                if(version==null)app.getSharedPreferences("updates",0).edit().putLong("last_check",System.currentTimeMillis()).apply();
             }catch(Exception e){error="Не удалось проверить обновление. Проверьте интернет и попробуйте снова.";}
             final String newVersion=version,download=url,problem=error;final boolean upToDate=current;
             activity.runOnUiThread(()->{
                 synchronized(AppUpdates.class){checking=false;}
-                if(activity.isFinishing()||activity.isDestroyed())return;
+                if(activity.isFinishing()||activity.isDestroyed() || !(activity instanceof MainActivity) || !((MainActivity)activity).isUpdateForeground())return;
                 if(newVersion!=null){
                     download(activity,download,newVersion);
+                    app.getSharedPreferences("updates",0).edit().putLong("last_check",System.currentTimeMillis()).apply();
                 }else if(manual && (problem!=null || upToDate))show(activity,"Обновление приложения",problem!=null?problem:"Установлена последняя опубликованная версия.");
             });
         },"app-update-check").start();
@@ -78,13 +87,73 @@ public final class AppUpdates {
                     if(cursor!=null && cursor.moveToFirst()){
                         int state=cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
                         if(state!=DownloadManager.STATUS_FAILED){
-                            show(activity,"Обновление "+version,"Загрузка уже начата. Откройте её в уведомлениях и подтвердите установку.");return;
+                            track(activity,true);return;
                         }
                     }
                 }
             }
-            long id=manager.enqueue(request);prefs.edit().putLong("download_id",id).putString("download_version",version).apply();
-            show(activity,"Обновление скачивается","Откройте уведомление о загрузке и подтвердите установку. Если Android запросит разрешение на установку из этого источника, разрешите её.");
+            if(previous!=-1)manager.remove(previous);
+            long id=manager.enqueue(request);prefs.edit().putLong("download_id",id).putString("download_version",version).putString("download_url",url).remove("offered_id").putBoolean("waiting_permission",false).apply();
+            track(activity,false);
         }catch(Exception e){show(activity,"Обновление приложения","Не удалось начать загрузку. Попробуйте снова.");}
     }
+    public static void resume(Activity activity){track(activity,false);}
+    public static void pause(Activity activity){
+        if(monitored!=activity)return;
+        if(monitor!=null)handler.removeCallbacks(monitor);monitor=null;monitored=null;
+        if(activity instanceof MainActivity)((MainActivity)activity).closeDownloadProgress();
+    }
+    private static void track(Activity activity,boolean manual){
+        if(!(activity instanceof MainActivity) || !((MainActivity)activity).isUpdateForeground() || activity.isFinishing() || activity.isDestroyed())return;
+        SharedPreferences prefs=activity.getSharedPreferences("updates",0);long id=prefs.getLong("download_id",-1);
+        String version=prefs.getString("download_version","");
+        try{if(id<0 || compare(version,activity.getPackageManager().getPackageInfo(activity.getPackageName(),0).versionName)<=0)return;}catch(Exception e){return;}
+        pause(activity);monitored=activity;MainActivity screen=(MainActivity)activity;
+        monitor=new Runnable(){
+            @Override public void run(){
+                if(monitored!=activity || activity.isFinishing() || activity.isDestroyed())return;
+                DownloadManager manager=(DownloadManager)activity.getSystemService(Context.DOWNLOAD_SERVICE);
+                try(android.database.Cursor cursor=manager.query(new DownloadManager.Query().setFilterById(id))){
+                    if(cursor==null || !cursor.moveToFirst()){
+                        screen.closeDownloadProgress();pause(activity);
+                        if(manual)screen.showUpdateDialog("Обновление приложения","Загрузка больше недоступна. Проверьте обновления ещё раз.");return;
+                    }
+                    int status=cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                    if(status==DownloadManager.STATUS_SUCCESSFUL){
+                        screen.closeDownloadProgress();pause(activity);
+                        boolean waiting=prefs.getBoolean("waiting_permission",false);
+                        if(waiting){prefs.edit().putBoolean("waiting_permission",false).apply();if(activity.getPackageManager().canRequestPackageInstalls())install(activity,id);else permissionDialog(activity,id);}
+                        else if(prefs.getLong("offered_id",-1)!=id)install(activity,id);
+                        else if(manual)screen.showUpdateDialog("Обновление готово","Обновление скачано и готово к установке.","Установить",()->install(activity,id));
+                        return;
+                    }
+                    if(status==DownloadManager.STATUS_FAILED){
+                        screen.closeDownloadProgress();pause(activity);
+                        String url=prefs.getString("download_url","");
+                        screen.showUpdateDialog("Ошибка загрузки","Не удалось скачать обновление. Проверьте интернет и попробуйте снова.","Повторить",()->{if(!url.isEmpty())download(activity,url,version);else check(activity,true);});return;
+                    }
+                    long done=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                    long total=cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                    screen.showDownloadProgress(version,done,total);handler.postDelayed(this,500);
+                }catch(Exception e){screen.closeDownloadProgress();pause(activity);screen.showUpdateDialog("Ошибка загрузки","Не удалось проверить загрузку. Попробуйте снова.","Повторить",()->check(activity,true));}
+            }
+        };handler.post(monitor);
+    }
+    private static void permissionDialog(Activity activity,long id){
+        activity.getSharedPreferences("updates",0).edit().putLong("offered_id",id).apply();
+        ((MainActivity)activity).showUpdateDialog("Разрешение на установку","Для установки обновления разрешите этому приложению устанавливать приложения из этого источника.","Настройки",()->{
+            try{activity.getSharedPreferences("updates",0).edit().putBoolean("waiting_permission",true).apply();activity.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+activity.getPackageName())));}
+            catch(Exception e){activity.getSharedPreferences("updates",0).edit().putBoolean("waiting_permission",false).apply();show(activity,"Не удалось открыть настройки","Разрешите установку из этого источника в настройках телефона и попробуйте ещё раз.");}
+        });
+    }
+    private static void install(Activity activity,long id){
+        if(!activity.getPackageManager().canRequestPackageInstalls()){permissionDialog(activity,id);return;}
+        try{
+            DownloadManager manager=(DownloadManager)activity.getSystemService(Context.DOWNLOAD_SERVICE);Uri uri=manager.getUriForDownloadedFile(id);
+            if(uri==null)throw new IOException("APK недоступен");
+            Intent intent=new Intent(Intent.ACTION_VIEW).setDataAndType(uri,"application/vnd.android.package-archive").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            activity.getSharedPreferences("updates",0).edit().putLong("offered_id",id).putBoolean("waiting_permission",false).apply();activity.startActivity(intent);
+        }catch(Exception e){((MainActivity)activity).showUpdateDialog("Не удалось открыть установщик","Откройте загруженное обновление в уведомлениях или повторите проверку.","Повторить",()->check(activity,true));}
+    }
+
 }

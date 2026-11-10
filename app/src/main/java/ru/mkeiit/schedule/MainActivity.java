@@ -85,20 +85,21 @@ public class MainActivity extends Activity {
         groups.setOnCheckedChangeListener((g,id)->{subgroup=id-100;getPreferences(0).edit().putInt("subgroup",subgroup).apply();render();});
         content=column();
         root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
-        render();DailyJob.schedule(this);AppUpdates.check(this,false);
+        render();DailyJob.schedule(this);
         if(state!=null && state.getBoolean("showSettings",false))root.post(()->{if(!isDestroyed())settings();});
         io.submit(()->{Repository.Snapshot cached=Repository.read(this);Teachers.State teachers=TeacherRepository.read(this);runOnUiThread(()->{if(isDestroyed())return;data=cached;acceptTeachers(teachers);render();if(needsUpdate())update();else if(selectedTeacherId!=null)loadTeacher(selectedTeacherId);});});
     }
     private boolean needsUpdate(){return System.currentTimeMillis()-data.checked>=Repository.DAY || data.bells==null || teacherData.entries.isEmpty();}
     @Override protected void onResume(){
-        super.onResume();resumed=true;
+        super.onResume();resumed=true;updateProgressHidden=false;
+        AppUpdates.resume(this);AppUpdates.check(this,false);
         if(content!=null && !busy)io.submit(()->{
             Repository.Snapshot cached=Repository.read(this);Teachers.State teachers=TeacherRepository.read(this);
             runOnUiThread(()->{if(isDestroyed()||busy)return;if(cached.checked>data.checked)data=cached;acceptTeachers(teachers);render();if(needsUpdate())update();});
         });
     }
     @Override protected void onPause(){
-        resumed=false;clearSyncNotice();super.onPause();
+        resumed=false;AppUpdates.pause(this);clearSyncNotice();super.onPause();
     }
     private void clearSyncNotice(){
         syncNotice="";if(status!=null){status.removeCallbacks(clearNotice);renderStatus();}
@@ -360,12 +361,13 @@ public class MainActivity extends Activity {
         if(!primary)normal.setStroke(dp(1),colors.dark?0xFF34445F:0xFFDDE5F3);
         android.graphics.drawable.StateListDrawable states=new android.graphics.drawable.StateListDrawable();states.addState(new int[]{-android.R.attr.state_enabled},background(colors.surface,12));states.addState(new int[]{},normal);
         android.graphics.drawable.RippleDrawable ripple=new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf((foreground & 0x00FFFFFF) | 0x33000000),states,background(0xFFFFFFFF,12));button.setBackground(ripple);
-        AppIcon drawable=new AppIcon(icon,foreground);drawable.setBounds(0,0,dp(18),dp(18));drawable.setTintList(textColors);button.setCompoundDrawables(title.equals("Отмена") || title.equals("Выбрать") || title.equals("Проверить обновления")?null:drawable,null,null,null);button.setCompoundDrawablePadding(iconOnly?0:dp(5));
+        AppIcon drawable=new AppIcon(icon,foreground);drawable.setBounds(0,0,dp(18),dp(18));drawable.setTintList(textColors);button.setCompoundDrawables(title.equals("Отмена") || title.equals("Выбрать") || title.equals("Проверить обновления") || title.equals("Повторить") || title.equals("Настройки") || title.equals("Установить")?null:drawable,null,null,null);button.setCompoundDrawablePadding(iconOnly?0:dp(5));
         String description=title.equals("⋮")?"Настройки":title.equals("‹")?"Предыдущая неделя":title.equals("›")?"Следующая неделя":label;button.setContentDescription(description);button.setTooltipText(description);
         button.setOnClickListener(v->callback.run());LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(iconOnly?dp(44):-2,dp(44));lp.setMargins(dp(2),dp(2),dp(2),dp(2));if(parent.getOrientation()==LinearLayout.VERTICAL)lp.gravity=Gravity.CENTER_HORIZONTAL;parent.addView(button,lp);return button;
     }
     private void open(String url){try{startActivity(new Intent(Intent.ACTION_VIEW,Uri.parse(url)));}catch(ActivityNotFoundException e){showSyncNotice("Браузер не установлен");}}
-    void showUpdateDialog(String title,String message){
+    void showUpdateDialog(String title,String message){showUpdateDialog(title,message,null,null);}
+    void showUpdateDialog(String title,String message,String actionLabel,Runnable callback){
         if(isFinishing() || isDestroyed())return;
         Dialog dialog=new Dialog(this);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         LinearLayout panel=column();panel.setPadding(dp(20),dp(18),dp(20),dp(16));panel.setBackground(background(colors.background,20));
@@ -373,10 +375,36 @@ public class MainActivity extends Activity {
         TextView body=text(message,15,muted,false);body.setGravity(Gravity.START);body.setLineSpacing(dp(3),1f);panel.addView(body);
         LinearLayout footer=row();footer.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);LinearLayout.LayoutParams spacing=new LinearLayout.LayoutParams(-1,-2);spacing.topMargin=dp(14);panel.addView(footer,spacing);
         action(footer,"Закрыть",()->dialog.dismiss());
+        if(callback!=null)action(footer,actionLabel,()->{dialog.dismiss();callback.run();});
         dialog.setContentView(panel);dialog.show();
         dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);
         dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-dp(24),dp(400)),WindowManager.LayoutParams.WRAP_CONTENT);
     }
+    private boolean updateProgressHidden;
+    boolean isUpdateForeground(){return resumed;}
+    private Dialog updateProgressDialog;
+    private TextView updateProgressLabel;
+    private ProgressBar updateProgressBar;
+    void showDownloadProgress(String version,long done,long total){
+        if(!resumed || updateProgressHidden || isFinishing() || isDestroyed())return;
+        if(updateProgressDialog==null){
+            Dialog dialog=new Dialog(this);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+            LinearLayout panel=column();panel.setPadding(dp(20),dp(18),dp(20),dp(16));panel.setBackground(background(colors.background,20));
+            panel.addView(text("Загрузка обновления "+version,20,ink,true));
+            updateProgressLabel=text("Подготовка загрузки…",14,muted,false);panel.addView(updateProgressLabel);
+            updateProgressBar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);updateProgressBar.setMax(100);
+            updateProgressBar.setProgressTintList(android.content.res.ColorStateList.valueOf(blue));updateProgressBar.setProgressBackgroundTintList(android.content.res.ColorStateList.valueOf(colors.teacherCard));updateProgressBar.setIndeterminateTintList(android.content.res.ColorStateList.valueOf(blue));
+            LinearLayout.LayoutParams bar=new LinearLayout.LayoutParams(-1,dp(10));bar.setMargins(0,dp(12),0,dp(12));panel.addView(updateProgressBar,bar);
+            LinearLayout footer=row();footer.setGravity(Gravity.END);panel.addView(footer);action(footer,"Закрыть",()->{updateProgressHidden=true;dialog.dismiss();});
+            dialog.setOnDismissListener(d->{if(updateProgressDialog==dialog)updateProgressDialog=null;});
+            dialog.setContentView(panel);dialog.show();dialog.getWindow().setBackgroundDrawableResource(android.R.color.transparent);dialog.getWindow().setLayout(Math.min(getResources().getDisplayMetrics().widthPixels-dp(24),dp(400)),WindowManager.LayoutParams.WRAP_CONTENT);
+            updateProgressDialog=dialog;
+        }
+        boolean known=total>0;updateProgressBar.setIndeterminate(!known);
+        if(known){int percent=(int)Math.min(100,Math.max(0,done*100.0/total));updateProgressBar.setProgress(percent);updateProgressLabel.setText("Загружено: "+percent+"%");}
+        else updateProgressLabel.setText("Загрузка…");
+    }
+    void closeDownloadProgress(){if(updateProgressDialog!=null)updateProgressDialog.dismiss();}
     private void settings(){
         if(settingsDialog!=null && settingsDialog.isShowing())return;
         final Dialog dialog=new Dialog(this);settingsDialog=dialog;
