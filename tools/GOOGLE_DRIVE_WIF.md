@@ -1,0 +1,7 @@
+# Резервная копия Google Диска через Workload Identity Federation
+
+Workflow `gdrive-wif-backup.yml` на `push` в `main` и `workflow_dispatch` сохраняет `git archive` точного SHA события и файл `BACKUP_COMMIT.txt`, затем заменяет содержимое одного существующего ZIP на Диске. Локальные файлы и ключи в архив не входят. Проверка Drive не требует видимости родительской папки сервисному аккаунту; она проверяет ID, имя, отсутствие в корзине и право редактирования, а после загрузки — ID, размер и MD5 от Drive.
+
+Настройка требует Google Cloud проект `mkeiit-schedule-backup`, Drive API, IAM, IAM Credentials, STS, WIF pool и OIDC provider с ограничением по `repository_id=1428738346`, `repository_owner_id=272140294`, `ref=refs/heads/main`. Дайте внешнему principal `roles/iam.workloadIdentityUser` на отдельный сервисный аккаунт, а аккаунту — права редактора только на существующий ZIP. В переменных GitHub Actions нужны `GCP_WORKLOAD_IDENTITY_PROVIDER` (полное имя провайдера с номером проекта) и `GCP_BACKUP_SERVICE_ACCOUNT` (email сервисного аккаунта). До заполнения переменных job пропускается.
+
+После настройки запустите workflow вручную из `main`; проверьте его статус, скачайте ZIP и проверьте SHA, содержимое и расположение. Только затем отключите текущую задачу ChatGPT. Не создавайте постоянный ключ сервисного аккаунта. Старый отключённый workflow `google-drive-backup.yml` к WIF не относится.
