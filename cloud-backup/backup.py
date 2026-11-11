@@ -47,9 +47,11 @@ def main():
     if len(sha) != 40 or any(c not in '0123456789abcdef' for c in sha):
         raise RuntimeError('Invalid Git commit SHA')
     token = metadata_token()
-    metadata = json.loads(drive_get(token, '?fields=id,name,parents,trashed'))
+    metadata = json.loads(drive_get(token, '?fields=id,name,parents,trashed,capabilities(canEdit)'))
     if metadata.get('id') != FILE_ID or metadata.get('name') != FILE_NAME or FOLDER_ID not in metadata.get('parents', []) or metadata.get('trashed'):
         raise RuntimeError('Backup file was moved, renamed, or removed; no file was changed')
+    if not metadata.get('capabilities', {}).get('canEdit', False):
+        raise RuntimeError('The service account does not have permission to edit the backup file')
     old = drive_get(token, '?alt=media')
     try:
         with zipfile.ZipFile(io.BytesIO(old)) as archive:
