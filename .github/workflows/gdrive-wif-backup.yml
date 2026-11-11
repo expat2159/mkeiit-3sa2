@@ -11,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   backup:
-    if: ${{ github.ref == 'refs/heads/main' && vars.GCP_WORKLOAD_IDENTITY_PROVIDER != '' && vars.GCP_BACKUP_SERVICE_ACCOUNT != '' }}
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,8 +23,8 @@ jobs:
         id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_BACKUP_SERVICE_ACCOUNT }}
+          workload_identity_provider: projects/275708968587/locations/global/workloadIdentityPools/mkeiit-github/providers/github
+          service_account: mkeiit-gh-backup@mkeiit-schedule-backup.iam.gserviceaccount.com
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/drive
       - name: Archive and update the existing Drive file
