@@ -1,0 +1,26 @@
+name: Backup sources to Google Drive
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: google-drive-source-backup
+  cancel-in-progress: false
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Archive the latest main branch
+        run: |
+          git fetch origin main
+          git archive --format=zip --prefix=mkeiit-3sa2/ origin/main > "$RUNNER_TEMP/3SA2-source-backup.zip"
+      - name: Replace backup on Google Drive
+        env:
+          GOOGLE_DRIVE_CREDENTIALS: ${{ secrets.GOOGLE_DRIVE_CREDENTIALS }}
+        run: python3 tools/backup_google_drive.py "$RUNNER_TEMP/3SA2-source-backup.zip"

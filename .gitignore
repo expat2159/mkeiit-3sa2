@@ -12,3 +12,8 @@ local.properties
 *.pem
 *.key
 .DS_Store
+
+google-drive-backup-credentials.json
+client_secret*.json
+__pycache__/
+*.pyc
