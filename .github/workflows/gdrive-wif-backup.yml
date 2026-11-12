@@ -27,7 +27,7 @@ jobs:
           service_account: mkeiit-gh-backup@mkeiit-schedule-backup.iam.gserviceaccount.com
           token_format: access_token
           access_token_scopes: https://www.googleapis.com/auth/drive
-      - name: Archive and update the existing Drive file
+      - name: Archive and update both Drive files
         env:
           DRIVE_ACCESS_TOKEN: ${{ steps.auth.outputs.access_token }}
           BACKUP_COMMIT: ${{ github.sha }}
