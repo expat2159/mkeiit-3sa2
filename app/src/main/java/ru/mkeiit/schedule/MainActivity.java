@@ -28,7 +28,7 @@ public class MainActivity extends Activity {
     private ScrollView teacherScroll;
     private int teacherScrollY;
     private long teacherRequest;
-    private boolean teacherLoading;
+    private boolean teacherLoading,teacherCacheLoaded,groupCacheLoaded,restoreTeacherPending;
 
     private LinearLayout root,content,tabs;
     private LocalDate stripStart;
@@ -38,6 +38,7 @@ public class MainActivity extends Activity {
     private int subgroup,selectedTab;
     private LocalDate selectedDay=LocalDate.now(ZoneId.of("Europe/Moscow"));
     private boolean busy,resumed;
+    private long groupRevision;
     private String syncNotice="";
     private final Runnable clearNotice=()->{syncNotice="";renderStatus();};
     private String error="";
@@ -60,7 +61,7 @@ public class MainActivity extends Activity {
         if(state!=null){selectedTeacherId=state.getString("teacherId");teacherQuery=state.getString("teacherQuery","");teacherScrollY=state.getInt("teacherScrollY",0);teacherDay=LocalDate.parse(state.getString("teacherDay",today().toString()));if(state.containsKey("teacherStrip"))teacherStrip=LocalDate.parse(state.getString("teacherStrip"));}
         buildContent();DailyJob.schedule(this);
         if(state!=null && state.getBoolean("showSettings",false))root.post(()->{if(!isDestroyed())settings();});
-        io.submit(()->{Repository.Snapshot cached=Repository.read(this);Teachers.State teachers=TeacherRepository.read(this);runOnUiThread(()->{if(isDestroyed())return;data=cached;acceptTeachers(teachers);render();if(needsUpdate())update();else if(selectedTeacherId!=null)loadTeacher(selectedTeacherId);});});
+        restoreTeacherPending=selectedTeacherId!=null;
     }
     private void tintRadio(RadioButton button){
         button.setButtonTintList(new android.content.res.ColorStateList(new int[][]{new int[]{android.R.attr.state_checked},new int[]{}},new int[]{blue,muted}));
@@ -98,14 +99,25 @@ public class MainActivity extends Activity {
         root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
         render();if(busy)status.setText("Проверяем изменения…");
     }
-    private boolean needsUpdate(){return System.currentTimeMillis()-data.checked>=Repository.DAY || data.bells==null || teacherData.entries.isEmpty();}
+    private boolean needsUpdate(){return System.currentTimeMillis()-data.checked>=Repository.DAY || data.bells==null || (teacherCacheLoaded && teacherData.entries.isEmpty());}
+    private void maybeUpdate(){if(!busy && groupCacheLoaded && needsUpdate())update();}
     @Override protected void onResume(){
         super.onResume();resumed=true;updateProgressHidden=false;
         AppUpdates.resume(this);AppUpdates.check(this,false);
-        if(content!=null && !busy)io.submit(()->{
-            Repository.Snapshot cached=Repository.read(this);Teachers.State teachers=TeacherRepository.read(this);
-            runOnUiThread(()->{if(isDestroyed()||busy)return;if(cached.checked>data.checked)data=cached;acceptTeachers(teachers);render();if(needsUpdate())update();});
-        });
+        if(content!=null){
+            final long readingRevision=groupRevision;
+            io.submit(()->{
+                Repository.Snapshot cached=Repository.read(this);
+                runOnUiThread(()->{if(isDestroyed())return;
+                    if(groupRevision==readingRevision && (!groupCacheLoaded || cached.checked>=data.checked)){data=cached;groupRevision++;}
+                    groupCacheLoaded=true;render();maybeUpdate();});
+            });
+            teacherIo.submit(()->{
+                Teachers.State cached=TeacherRepository.read(this);
+                runOnUiThread(()->{if(isDestroyed())return;acceptTeachers(cached);teacherCacheLoaded=true;if(selectedTab==1)render();
+                    if(restoreTeacherPending && selectedTeacherId!=null){restoreTeacherPending=false;loadTeacher(selectedTeacherId);}maybeUpdate();});
+            });
+        }
     }
     @Override protected void onPause(){
         resumed=false;closeUpdateCheckProgress();AppUpdates.pause(this);clearSyncNotice();super.onPause();
@@ -120,11 +132,12 @@ public class MainActivity extends Activity {
     private void update(){
         if(busy)return;clearSyncNotice();busy=true;error="";teacherProblem="";refresh.setEnabled(false);status.setText("Проверяем изменения…");
         final String refreshTeacher=selectedTab==1?selectedTeacherId:null;
+        final LocalDate priorityDay=selectedDay;
         io.submit(()->{
             Repository.Snapshot fresh=null;String problem="";
-            try{fresh=Repository.refresh(getApplicationContext(),partial->runOnUiThread(()->{if(isDestroyed())return;data=partial;status.setText("Расписание обновлено · проверяем преподавателей и звонки…");render();}));if(refreshTeacher!=null && !TeacherRepository.read(getApplicationContext()).visited.contains(refreshTeacher))TeacherRepository.refreshOne(getApplicationContext(),refreshTeacher,true);}catch(Exception e){problem="Не удалось обновить. Сохранённые данные доступны.";}
+            try{fresh=Repository.refresh(getApplicationContext(),priorityDay,partial->runOnUiThread(()->{if(isDestroyed())return;data=partial;groupRevision++;groupCacheLoaded=true;status.setText("Расписание обновляется · проверяем остальные данные…");render();}),teachers->runOnUiThread(()->{if(isDestroyed())return;boolean wasEmpty=teacherData.entries.isEmpty();acceptTeachers(teachers);teacherCacheLoaded=true;if(selectedTab==1 && (selectedTeacherId!=null || wasEmpty))render();}));if(refreshTeacher!=null && !TeacherRepository.read(getApplicationContext()).visited.contains(refreshTeacher))TeacherRepository.refreshOne(getApplicationContext(),refreshTeacher,true);}catch(Exception e){problem="Не удалось обновить. Сохранённые данные доступны.";}
             final Repository.Snapshot result=fresh;final String message=problem;final Teachers.State teachers=TeacherRepository.read(getApplicationContext());
-            runOnUiThread(()->{if(isDestroyed())return;busy=false;refresh.setEnabled(true);error=message;acceptTeachers(teachers);if(result!=null)data=result;render();if(result!=null && result.syncMessage!=null)showSyncNotice(result.syncMessage);});
+            runOnUiThread(()->{if(isDestroyed())return;busy=false;refresh.setEnabled(true);error=message;acceptTeachers(teachers);if(result!=null){data=result;groupRevision++;}render();if(result!=null && result.syncMessage!=null)showSyncNotice(result.syncMessage);});
         });
     }
     private void renderStatus(){

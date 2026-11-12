@@ -32,11 +32,14 @@ public final class ConditionalHttpCache {
     private final long maxStorage;
     public ConditionalHttpCache(File directory,Transport transport){this(directory,transport,64L*1024*1024);}
     public ConditionalHttpCache(File directory,Transport transport,long maxStorage){this.directory=directory;this.transport=transport;this.maxStorage=maxStorage;}
+    private static final class UrlLock {int users;}
+    private final Map<String,UrlLock> locks=new HashMap<>();
     public Resource get(String url,int maxBytes)throws IOException{
-        synchronized(lockFor(url)){return getLocked(url,maxBytes);}
+        UrlLock lock;
+        synchronized(locks){lock=locks.get(url);if(lock==null){lock=new UrlLock();locks.put(url,lock);}lock.users++;}
+        try{synchronized(lock){return getLocked(url,maxBytes);}}
+        finally{synchronized(locks){if(--lock.users==0)locks.remove(url);}}
     }
-    private final Object[] locks=new Object[32];
-    private Object lockFor(String url){synchronized(locks){int i=(url.hashCode() & 0x7fffffff)%locks.length;if(locks[i]==null)locks[i]=new Object();return locks[i];}}
     private Resource getLocked(String url,int maxBytes)throws IOException{
         if(Thread.currentThread().isInterrupted())throw new InterruptedIOException();
         Record old=read(url,maxBytes);Map<String,String> headers=new LinkedHashMap<>();
@@ -77,7 +80,7 @@ public final class ConditionalHttpCache {
         }catch(Exception e){return null;}
     }
     private void save(Record record)throws IOException{
-        if(!directory.isDirectory() && !directory.mkdirs())throw new IOException("Не удалось создать кэш проверки изменений");
+        if(!directory.isDirectory() && !directory.mkdirs() && !directory.isDirectory())throw new IOException("Не удалось создать кэш проверки изменений");
         File target=file(record.url),temporary=File.createTempFile("resource-",".tmp",directory);
         try{
             try(FileOutputStream file=new FileOutputStream(temporary);ObjectOutputStream output=new ObjectOutputStream(file)){output.writeObject(record);output.flush();file.getFD().sync();}

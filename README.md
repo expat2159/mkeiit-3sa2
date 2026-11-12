@@ -24,7 +24,7 @@
 
 Заголовки подгрупп и прочерки пустых ячеек центрируются по ширине соответствующих столбцов. При выборе одной подгруппы поясняющий заголовок «Предмет · кабинет · преподаватель» скрыт.
 
-Запросы независимых файлов выполняются параллельно (до трёх одновременно). Данные группы сохраняются и отображаются сразу после проверки; проверка звонков и просмотренных преподавателей продолжается, затем отображается общий результат. Расписания преподавателей сохраняются одной операцией.
+При открытии сохранённое расписание группы показывается независимо от загрузки преподавателей и сетевых проверок. Выбранная и текущая недели получают приоритет, а каждая успешно проверенная неделя сохраняется и показывается по мере готовности; ранее сохранённые недели остаются доступны при ошибках. Групповые страницы проверяются до трёх одновременно, звонки — независимо; списки недель и расписания просмотренных преподавателей — до трёх запросов одновременно на каждом этапе. Результаты преподавателей сохраняются по мере готовности. Ручная и фоновая проверки сериализуются, но не блокируют чтение кэша.
 
 При открытии или возвращении в приложение проверяется последний выпуск GitHub, если после успешной проверки прошло не менее 10 минут. Ручная проверка в настройках доступна сразу и показывает индикатор «Проверяются обновления». Если GitHub сообщает о превышении лимита, приложение откладывает запросы до разрешённого времени. При обнаружении новой версии приложение спрашивает, скачать ли её; «Позже» откладывает загрузку. После согласия версия скачивается через системный загрузчик с полосой прогресса в приложении. После загрузки при открытом приложении запускается системный установщик; пользователь подтверждает установку. При сворачивании загрузка продолжается и установка предлагается после возвращения. Системный загрузчик не оставляет уведомление о завершённой загрузке. При необходимости приложение объясняет, как разрешить установку из этого источника. В настройках доступна ручная проверка. Публикуйте выпуски с тегом `v1.20` (номер версии) и APK с именем `3SA2-raspisanie-1.20.apk`; подписывайте каждый выпуск тем же ключом. Проверка рассматривает только опубликованный latest release и использует только APK из этого репозитория.
 
@@ -64,7 +64,7 @@ APK: `app/build/outputs/apk/debug/app-debug.apk`.
 python3 build-apk.py --sdk /path/to/android-sdk --ecj /path/to/ecj-3.38.0.jar
 ```
 
-APK: `dist/3SA2-raspisanie-1.29.apk`. Скрипт компилирует приложение, упаковывает ресурсы и проверяет подпись. Ключ подписи в репозиторий не включён: самостоятельная сборка получит другую подпись. Каталоги сборки, APK, локальные настройки и ключи исключены из Git.
+APK: `dist/3SA2-raspisanie-1.30.apk`. Скрипт компилирует приложение, упаковывает ресурсы и проверяет подпись. Ключ подписи в репозиторий не включён: самостоятельная сборка получит другую подпись. Каталоги сборки, APK, локальные настройки и ключи исключены из Git.
 
 Jsoup 1.18.3 включён в `app/libs`. Его лицензия MIT присутствует внутри JAR и в `app/src/main/assets/jsoup-LICENSE.txt`.
 
@@ -83,12 +83,27 @@ javac -encoding UTF-8 -cp app/libs/jsoup-1.18.3.jar -d build/tests \
   app/src/main/java/ru/mkeiit/schedule/DayStripPosition.java \
   app/src/main/java/ru/mkeiit/schedule/Teachers.java \
   app/src/main/java/ru/mkeiit/schedule/AppColors.java \
-  app/src/main/java/ru/mkeiit/schedule/ConditionalHttpCache.java tests/*.java
+  app/src/main/java/ru/mkeiit/schedule/ConditionalHttpCache.java \
+  app/src/main/java/ru/mkeiit/schedule/RefreshOrder.java \
+  tests/ParserTest.java tests/BellsTest.java tests/CalendarTest.java tests/DayStripTest.java \
+  tests/TeachersTest.java tests/AppColorsTest.java tests/ConditionalHttpCacheTest.java \
+  tests/CacheConcurrencyTest.java tests/RefreshOrderTest.java
 for test in ParserTest BellsTest CalendarTest DayStripTest TeachersTest AppColorsTest; do
   java -cp build/tests:app/libs/jsoup-1.18.3.jar "$test"
 done
 java -cp build/tests:app/libs/jsoup-1.18.3.jar ru.mkeiit.schedule.ConditionalHttpCacheTest
 java -cp build/tests:app/libs/jsoup-1.18.3.jar ru.mkeiit.schedule.CacheConcurrencyTest
+java -cp build/tests:app/libs/jsoup-1.18.3.jar RefreshOrderTest
+
+# Сетевые и файловые сбои, конкурентные обновления и постепенное появление данных
+mkdir -p build/repository-tests
+javac -encoding UTF-8 -cp app/libs/jsoup-1.18.3.jar -d build/repository-tests \
+  tests/android-fakes/android/content/Context.java tests/android-fakes/android/util/AtomicFile.java \
+  tests/android-fakes/android/graphics/BitmapFactory.java tests/android-fakes/ru/mkeiit/schedule/CachedNetwork.java \
+  app/src/main/java/ru/mkeiit/schedule/{Timetable,Bells,Teachers,ConditionalHttpCache,RefreshOrder,Repository,TeacherRepository}.java \
+  tests/RepositoryConcurrencyTest.java tests/RefreshLatencyBenchmark.java
+java -cp build/repository-tests:app/libs/jsoup-1.18.3.jar ru.mkeiit.schedule.RepositoryConcurrencyTest
+java -cp build/repository-tests:app/libs/jsoup-1.18.3.jar ru.mkeiit.schedule.RefreshLatencyBenchmark
 ```
 
 На Windows замените `:` в classpath на `;` и запустите тесты отдельными командами.
